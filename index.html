@@ -7,6 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #f3f4f6; color: #1f2937; }
+        
+        /* Animated Checkerboard - Cycling Left */
         .checkerboard {
             background-image:
                 linear-gradient(45deg, #e5e7eb 25%, transparent 25%),
@@ -16,8 +18,15 @@
             background-size: 80px 80px;
             background-position: 0 0, 0 40px, 40px -40px, -40px 0px;
             background-color: #ffffff;
+            animation: slideCheckers 12s linear infinite;
+        }
+
+        @keyframes slideCheckers {
+            from { background-position: 0 0, 0 40px, 40px -40px, -40px 0px; }
+            to { background-position: -80px 0, -80px 40px, -40px -40px, -120px 0px; }
         }
         
+        /* Rainbow Gradient - Cycling Right */
         .rainbow-slide {
             position: absolute;
             top: 0;
@@ -47,8 +56,18 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* Custom style for summary truncation */
+        .truncate-summary {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        details > summary::-webkit-details-marker {
+            display: none;
+        }
     </style>
-    <!-- OpenCV.js Configuration and Loading -->
     <script>
         var cvReady = false;
         var Module = {
@@ -68,28 +87,66 @@
                 <h1 class="text-3xl sm:text-5xl md:text-6xl font-extrabold text-gray-900 tracking-tight">Crystal Clear - Background Remover</h1>
                 <p class="text-lg sm:text-xl text-gray-600 font-medium mt-3">Preserves semi-transparency in shadows and glass.</p>
             </div>
-            <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-5 max-w-3xl mx-auto text-sm sm:text-base shadow-sm text-left space-y-3">
-                <p>
-                    <strong>What it is:</strong> A smart tool that takes two images with different backgrounds and compares them mathematically to remove the background from any image—perfectly preserving soft shadows, glowing edges, and semi-transparent glass.
-                </p>
-                <p>
-                    <strong>How to use it:</strong> Ask any AI generator to give your image a <b>solid black background</b>, and then a <b>solid white background</b>. Upload both versions below to instantly get a flawless transparent PNG!
-                </p>
+            
+            <!-- Instructions Dropdowns -->
+            <div class="max-w-3xl mx-auto space-y-2 text-left">
+                <!-- What it is -->
+                <details class="group bg-blue-50 border border-blue-200 rounded-lg overflow-hidden transition-all duration-300">
+                    <summary class="p-3 cursor-pointer flex items-center justify-between select-none">
+                        <div class="flex-1 min-w-0 pr-4">
+                            <span class="font-bold text-blue-900 block text-sm">What it is:</span>
+                            <span class="text-blue-800 text-xs truncate-summary group-open:hidden">A smart tool that takes two images with different backgrounds and compares them mathematically to remove...</span>
+                        </div>
+                        <svg class="w-4 h-4 text-blue-400 group-open:rotate-180 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </summary>
+                    <div class="px-3 pb-3 text-sm text-blue-800 leading-relaxed">
+                        A smart tool that takes two images with different backgrounds and compares them mathematically to remove the background from any image—perfectly preserving soft shadows, glowing edges, and semi-transparent glass.
+                    </div>
+                </details>
+
+                <!-- How to use it -->
+                <details class="group bg-blue-50 border border-blue-200 rounded-lg overflow-hidden transition-all duration-300">
+                    <summary class="p-3 cursor-pointer flex items-center justify-between select-none">
+                        <div class="flex-1 min-w-0 pr-4">
+                            <span class="font-bold text-blue-900 block text-sm">How to use it:</span>
+                            <span class="text-blue-800 text-xs truncate-summary group-open:hidden">Ask any AI generator to give your image a solid black background, and then a solid white background...</span>
+                        </div>
+                        <svg class="w-4 h-4 text-blue-400 group-open:rotate-180 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </summary>
+                    <div class="px-3 pb-3 text-sm text-blue-800 leading-relaxed">
+                        Ask any AI generator to give your image a <b>solid black background</b>, and then a <b>solid white background</b>. Upload both versions below to instantly get a flawless transparent PNG!
+                    </div>
+                </details>
+
+                <!-- For best results -->
+                <details class="group bg-blue-50 border border-blue-200 rounded-lg overflow-hidden transition-all duration-300">
+                    <summary class="p-3 cursor-pointer flex items-center justify-between select-none">
+                        <div class="flex-1 min-w-0 pr-4">
+                            <span class="font-bold text-blue-900 block text-sm">For best results:</span>
+                            <span class="text-blue-800 text-xs truncate-summary group-open:hidden">Start by taking your image and creating one with 100% solid black background. Then ask it to do...</span>
+                        </div>
+                        <svg class="w-4 h-4 text-blue-400 group-open:rotate-180 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </summary>
+                    <div class="px-3 pb-3 text-sm text-blue-800 space-y-3 leading-relaxed">
+                        <p>Start by taking your image and creating one with 100% solid black background. Then ask it to do the same but for a color that you think contrasts the rest of the image. Orange with a blue background etc. When generating the second image, make sure you tell ai to not show any ambient lighting or reflections from the <i>color</i> background on the objects.</p>
+                        <p>Another useful tip is to tell the ai to make the color shifts between the background and foreground glass more smooth. Also this tool runs completely in your browser, so feel free to Ctrl+S save the webpage to your computer for offline access.</p>
+                        <p>This tool accepts AI images as input, but internally it does not use AI image generation. Just math for the transparency and computer vision for the watermark removal.</p>
+                        <p class="pt-2 border-t border-blue-100 italic">If you encounter any issues or want anything improved, email <a href="mailto:arcanglegabe@gmail.com" class="text-blue-600 underline">arcanglegabe@gmail.com</a> with suggestions.</p>
+                    </div>
+                </details>
             </div>
         </header>
 
         <!-- Controls & Upload Zones -->
         <div class="flex flex-col items-center space-y-4">
-            
-            <!-- Upload Grid (Side by Side always) -->
             <div class="grid grid-cols-2 gap-3 w-full max-w-4xl">
                 <!-- Image 1 Input -->
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 flex flex-col items-center justify-start space-y-2">
                     <h2 class="text-sm sm:text-base font-bold text-center">Image 1</h2>
-                    <p class="text-xs text-gray-500 text-center font-bold text-black">MUST BE BLACK BG</p>
+                    <p class="text-xs text-gray-500 text-center font-bold text-black uppercase">Solid Black BG</p>
                     <label id="drop-zone-1" class="drop-zone w-full h-full min-h-[120px] border-2 border-dashed border-gray-300 rounded-lg p-2 sm:p-4 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 relative overflow-hidden">
                         <svg class="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                        <span class="text-xs sm:text-sm font-medium text-gray-600 text-center" id="label-text-1">Upload Image 1</span>
+                        <span class="text-xs sm:text-sm font-medium text-gray-600 text-center" id="label-text-1">Upload Black Version</span>
                         <input type="file" id="input-img-1" class="hidden" accept="image/*" />
                         <div id="preview-container-1" class="hidden absolute inset-0 bg-[#808080] flex items-center justify-center p-1">
                             <img id="preview-1" class="max-w-full max-h-full object-contain drop-shadow-md" />
@@ -100,10 +157,10 @@
                 <!-- Image 2 Input -->
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 flex flex-col items-center justify-start space-y-2">
                     <h2 class="text-sm sm:text-base font-bold text-center">Image 2</h2>
-                    <p class="text-xs text-gray-500 text-center font-bold text-black">WHITE OR COLOR BG</p>
+                    <p class="text-xs text-gray-500 text-center font-bold text-black uppercase">Solid White/Color BG</p>
                     <label id="drop-zone-2" class="drop-zone w-full h-full min-h-[120px] border-2 border-dashed border-gray-300 rounded-lg p-2 sm:p-4 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 relative overflow-hidden">
                         <svg class="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                        <span class="text-xs sm:text-sm font-medium text-gray-600 text-center" id="label-text-2">Upload Image 2</span>
+                        <span class="text-xs sm:text-sm font-medium text-gray-600 text-center" id="label-text-2">Upload Color Version</span>
                         <input type="file" id="input-img-2" class="hidden" accept="image/*" />
                         <div id="preview-container-2" class="hidden absolute inset-0 bg-[#808080] flex items-center justify-center p-1">
                             <img id="preview-2" class="max-w-full max-h-full object-contain drop-shadow-md" />
@@ -133,7 +190,6 @@
             <div class="p-4 sm:p-6 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center bg-gray-50 gap-4">
                 <div class="text-center sm:text-left">
                     <h2 class="text-xl sm:text-2xl font-bold text-gray-800">Final Transparent Result</h2>
-                    <p class="text-xs sm:text-sm text-green-600 font-medium mt-1" id="stats-text"></p>
                 </div>
                 <button id="download-btn" class="w-full sm:w-auto flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold transition-colors shadow-md text-lg">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
@@ -151,7 +207,6 @@
                 </div>
             </div>
         </div>
-        
     </div>
 
     <script>
@@ -161,13 +216,10 @@
         const preview2 = document.getElementById('preview-2');
         const container1 = document.getElementById('preview-container-1');
         const container2 = document.getElementById('preview-container-2');
-        const labelText1 = document.getElementById('label-text-1');
-        const labelText2 = document.getElementById('label-text-2');
         const processingState = document.getElementById('processing-state');
         const loadingMessage = document.getElementById('loading-message');
         const resultSection = document.getElementById('result-section');
         const outputCanvas = document.getElementById('output-canvas');
-        const statsText = document.getElementById('stats-text');
         const downloadBtn = document.getElementById('download-btn');
         const watermarkToggle = document.getElementById('watermark-toggle');
 
@@ -192,30 +244,22 @@
         setupDropZone('drop-zone-1', input1);
         setupDropZone('drop-zone-2', input2);
 
-        function handleImageUpload(inputElement, previewElement, containerElement, labelElement, isImage1) {
+        function handleImageUpload(inputElement, previewElement, containerElement, isImage1) {
             inputElement.addEventListener('change', function(e) {
                 const file = e.target.files[0];
                 if (!file) return;
-
                 if (isImage1) {
                     const lastDot = file.name.lastIndexOf('.');
-                    if (lastDot !== -1) {
-                        originalFileName = file.name.substring(0, lastDot) + '-transparent.png';
-                    } else {
-                        originalFileName = file.name + '-transparent.png';
-                    }
+                    originalFileName = (lastDot !== -1 ? file.name.substring(0, lastDot) : file.name) + '-transparent.png';
                 }
-
                 const reader = new FileReader();
                 reader.onload = function(event) {
                     const img = new Image();
                     img.onload = function() {
                         previewElement.src = event.target.result;
                         containerElement.classList.remove('hidden');
-                        
                         if (isImage1) image1Data = img;
                         else image2Data = img;
-
                         checkAndProcessImages();
                     }
                     img.src = event.target.result;
@@ -224,118 +268,102 @@
             });
         }
 
-        handleImageUpload(input1, preview1, container1, labelText1, true);
-        handleImageUpload(input2, preview2, container2, labelText2, false);
-
+        handleImageUpload(input1, preview1, container1, true);
+        handleImageUpload(input2, preview2, container2, false);
         watermarkToggle.addEventListener('change', checkAndProcessImages);
 
         function checkAndProcessImages() {
             if (image1Data && image2Data) {
                 if (watermarkToggle.checked && !cvReady) {
-                    alert("Please wait for the tools to finish loading in the background.");
+                    alert("Please wait for tools to finish loading.");
                     return;
                 }
-
                 resultSection.classList.add('hidden');
                 processingState.classList.remove('hidden');
                 processingState.classList.add('flex');
-                
-                setTimeout(() => {
-                    processMatting();
-                }, 50);
+                setTimeout(() => { processMatting(); }, 50);
             }
         }
 
-        // --- SURGICAL SVG TEMPLATE MATCHING ALGORITHM ---
         function applyCVInpainting(canvas, width, height) {
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
-            
-            const searchSizeW = Math.max(120, Math.floor(width * 0.25));
-            const searchSizeH = Math.max(120, Math.floor(height * 0.25));
-            const startX = width - searchSizeW;
-            const startY = height - searchSizeH;
+            const sectorSize = Math.max(160, Math.floor(Math.max(width, height) * 0.2));
+            const startX = Math.max(0, width - sectorSize);
+            const startY = Math.max(0, height - sectorSize);
 
-            const cornerImgData = ctx.getImageData(startX, startY, searchSizeW, searchSizeH);
+            const cornerImgData = ctx.getImageData(startX, startY, width - startX, height - startY);
+            const actualW = width - startX;
+            const actualH = height - startY;
+
             let cornerMat = cv.matFromImageData(cornerImgData);
-            let cornerGray = new cv.Mat();
-            cv.cvtColor(cornerMat, cornerGray, cv.COLOR_RGBA2GRAY);
+            let gray = new cv.Mat();
+            cv.cvtColor(cornerMat, gray, cv.COLOR_RGBA2GRAY);
 
-            let cornerEdges = new cv.Mat();
-            cv.Canny(cornerGray, cornerEdges, 40, 120);
+            let contrastMat = new cv.Mat();
+            cv.normalize(gray, contrastMat, 0, 255, cv.NORM_MINMAX); 
 
-            let bestVal = -1;
-            let bestLoc = null;
-            let bestSize = 0;
+            let edges = new cv.Mat();
+            cv.Canny(contrastMat, edges, 30, 100);
 
-            const baseSize = Math.max(20, Math.floor(Math.min(width, height) * 0.05));
-            const minSize = Math.max(10, Math.floor(baseSize * 0.4));
-            const maxSize = Math.max(40, Math.floor(baseSize * 2.0));
-
+            let bestVal = -1; let bestLoc = null; let bestSize = 0;
             const svgPath = "M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z";
 
-            for (let size = minSize; size <= maxSize; size += 2) {
+            const targetPixelSize = Math.floor(height * 0.03);
+            const minSize = Math.max(12, Math.floor(targetPixelSize * 0.6));
+            const maxSize = Math.max(60, Math.floor(targetPixelSize * 1.5));
+
+            for (let size = minSize; size <= maxSize; size += Math.max(2, Math.floor(size/10))) {
                 const cvsTmp = document.createElement('canvas');
                 cvsTmp.width = size; cvsTmp.height = size;
                 const ctxTmp = cvsTmp.getContext('2d');
-                ctxTmp.fillStyle = "black";
-                ctxTmp.fillRect(0, 0, size, size);
-                ctxTmp.fillStyle = "white";
-                ctxTmp.scale(size / 24.0, size / 24.0);
+                ctxTmp.fillStyle = "black"; ctxTmp.fillRect(0, 0, size, size);
+                ctxTmp.fillStyle = "white"; ctxTmp.scale(size / 24.0, size / 24.0);
                 ctxTmp.fill(new Path2D(svgPath));
 
-                let tmplImgData = ctxTmp.getImageData(0, 0, size, size);
-                let tmplMat = cv.matFromImageData(tmplImgData);
-                let tmplGray = new cv.Mat();
-                cv.cvtColor(tmplMat, tmplGray, cv.COLOR_RGBA2GRAY);
-                let tmplEdges = new cv.Mat();
-                cv.Canny(tmplGray, tmplEdges, 50, 150);
+                let tmplMat = cv.matFromImageData(ctxTmp.getImageData(0, 0, size, size));
+                let tmplGray = new cv.Mat(); cv.cvtColor(tmplMat, tmplGray, cv.COLOR_RGBA2GRAY);
+                let tmplEdges = new cv.Mat(); cv.Canny(tmplGray, tmplEdges, 50, 150);
+                
+                let res = new cv.Mat();
+                cv.matchTemplate(edges, tmplEdges, res, cv.TM_CCOEFF_NORMED);
+                let mm = cv.minMaxLoc(res);
 
-                let result = new cv.Mat();
-                cv.matchTemplate(cornerEdges, tmplEdges, result, cv.TM_CCOEFF_NORMED);
-                let minMax = cv.minMaxLoc(result);
-
-                if (minMax.maxVal > bestVal) {
-                    bestVal = minMax.maxVal;
-                    bestLoc = minMax.maxLoc;
-                    bestSize = size;
+                const distToBottomRight = Math.sqrt(Math.pow(actualW - (mm.maxLoc.x + size), 2) + Math.pow(actualH - (mm.maxLoc.y + size), 2));
+                const cornerFactor = 1.0 / (1.0 + (distToBottomRight * 0.05));
+                
+                let score = mm.maxVal * cornerFactor;
+                if (score > bestVal) {
+                    bestVal = score; bestLoc = mm.maxLoc; bestSize = size;
                 }
-                tmplMat.delete(); tmplGray.delete(); tmplEdges.delete(); result.delete();
+                tmplMat.delete(); tmplGray.delete(); tmplEdges.delete(); res.delete();
             }
 
-            if (bestVal > 0.15 && bestLoc !== null) {
-                let exactMask = cv.Mat.zeros(searchSizeH, searchSizeW, cv.CV_8UC1);
+            if (bestVal > 0.03 && bestLoc !== null) {
+                let mask = cv.Mat.zeros(actualH, actualW, cv.CV_8UC1);
                 const cvsTmp = document.createElement('canvas');
                 cvsTmp.width = bestSize; cvsTmp.height = bestSize;
                 const ctxTmp = cvsTmp.getContext('2d');
-                ctxTmp.fillStyle = "black";
-                ctxTmp.fillRect(0, 0, bestSize, bestSize);
-                ctxTmp.fillStyle = "white";
-                ctxTmp.scale(bestSize / 24.0, bestSize / 24.0);
+                ctxTmp.fillStyle = "black"; ctxTmp.fillRect(0, 0, bestSize, bestSize);
+                ctxTmp.fillStyle = "white"; ctxTmp.scale(bestSize / 24.0, bestSize / 24.0);
                 ctxTmp.fill(new Path2D(svgPath));
-
-                let winImgData = ctxTmp.getImageData(0, 0, bestSize, bestSize);
-                let winMat = cv.matFromImageData(winImgData);
-                let winGray = new cv.Mat();
-                cv.cvtColor(winMat, winGray, cv.COLOR_RGBA2GRAY);
-
-                let roi = exactMask.roi(new cv.Rect(bestLoc.x, bestLoc.y, bestSize, bestSize));
+                let winMat = cv.matFromImageData(ctxTmp.getImageData(0, 0, bestSize, bestSize));
+                let winGray = new cv.Mat(); cv.cvtColor(winMat, winGray, cv.COLOR_RGBA2GRAY);
+                let roi = mask.roi(new cv.Rect(bestLoc.x, bestLoc.y, bestSize, bestSize));
                 winGray.copyTo(roi);
 
                 let M = cv.Mat.ones(3, 3, cv.CV_8U);
-                cv.dilate(exactMask, exactMask, M, new cv.Point(-1, -1), 4, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
+                cv.dilate(mask, mask, M, new cv.Point(-1, -1), 8, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
 
-                let cornerRGB = new cv.Mat();
-                cv.cvtColor(cornerMat, cornerRGB, cv.COLOR_RGBA2RGB);
+                let cornerRGB = new cv.Mat(); cv.cvtColor(cornerMat, cornerRGB, cv.COLOR_RGBA2RGB);
                 let dstRGB = new cv.Mat();
-                cv.inpaint(cornerRGB, exactMask, dstRGB, 5, cv.INPAINT_TELEA);
+                cv.inpaint(cornerRGB, mask, dstRGB, 5, cv.INPAINT_NS);
 
                 let dstRGBA = new cv.Mat();
                 cv.cvtColor(dstRGB, dstRGBA, cv.COLOR_RGB2RGBA);
-
-                let outData = dstRGBA.data;
-                let exactMaskData = exactMask.data;
-                for (let i = 0; i < searchSizeW * searchSizeH; i++) {
-                    if (exactMaskData[i] > 0) {
+                let outData = dstRGBA.data; let mData = mask.data;
+                
+                for (let i = 0; i < actualW * actualH; i++) {
+                    if (mData[i] > 0) {
                         let idx = i * 4;
                         cornerImgData.data[idx] = outData[idx];
                         cornerImgData.data[idx+1] = outData[idx+1];
@@ -343,17 +371,14 @@
                     }
                 }
                 ctx.putImageData(cornerImgData, startX, startY);
-
-                winMat.delete(); winGray.delete(); roi.delete(); M.delete();
-                exactMask.delete(); cornerRGB.delete(); dstRGB.delete(); dstRGBA.delete();
+                winMat.delete(); winGray.delete(); roi.delete(); M.delete(); cornerRGB.delete(); dstRGB.delete(); dstRGBA.delete();
             }
-            cornerMat.delete(); cornerGray.delete(); cornerEdges.delete();
+            cornerMat.delete(); gray.delete(); contrastMat.delete(); edges.delete();
         }
 
         function processMatting() {
             try {
-                loadingMessage.innerText = watermarkToggle.checked ? "Removing watermark..." : "Extracting background...";
-
+                loadingMessage.innerText = "Processing Backgrounds...";
                 const width = image1Data.naturalWidth || image1Data.width;
                 const height = image1Data.naturalHeight || image1Data.height;
 
@@ -361,10 +386,8 @@
                 const cvs2 = document.createElement('canvas');
                 cvs1.width = width; cvs1.height = height;
                 cvs2.width = width; cvs2.height = height;
-
                 const ctx1 = cvs1.getContext('2d', { willReadFrequently: true });
                 const ctx2 = cvs2.getContext('2d', { willReadFrequently: true });
-
                 ctx1.drawImage(image1Data, 0, 0, width, height);
                 ctx2.drawImage(image2Data, 0, 0, width, height);
 
@@ -373,107 +396,45 @@
                     applyCVInpainting(cvs2, width, height);
                 }
 
-                loadingMessage.innerText = "Processing transparency...";
-
                 const imgData1 = ctx1.getImageData(0, 0, width, height);
                 const imgData2 = ctx2.getImageData(0, 0, width, height);
-                const data1 = imgData1.data;
-                const data2 = imgData2.data;
-
-                const len = data1.length;
+                const data1 = imgData1.data; const data2 = imgData2.data;
                 const histogram = new Uint32Array(262144); 
-                
-                let maxCount = 0;
-                let bestBinIndex = -1;
-                const binSize = 8; 
+                let maxCount = 0; let bestBinIndex = -1;
 
-                for (let i = 0; i < len; i += 4) {
-                    let dr = data1[i] - data2[i];
-                    let dg = data1[i+1] - data2[i+1];
-                    let db = data1[i+2] - data2[i+2];
-
+                for (let i = 0; i < data1.length; i += 4) {
+                    let dr = data1[i]-data2[i], dg = data1[i+1]-data2[i+1], db = data1[i+2]-data2[i+2];
                     if (Math.abs(dr) < 5 && Math.abs(dg) < 5 && Math.abs(db) < 5) continue; 
-
-                    let binR = Math.floor((dr + 255) / binSize);
-                    let binG = Math.floor((dg + 255) / binSize);
-                    let binB = Math.floor((db + 255) / binSize);
-                    
-                    let binIndex = (binR << 12) | (binG << 6) | binB;
-                    let count = ++histogram[binIndex];
-
-                    if (count > maxCount) {
-                        maxCount = count;
-                        bestBinIndex = binIndex;
-                    }
+                    let bI = ((Math.floor((dr+255)/8))<<12)|((Math.floor((dg+255)/8))<<6)|(Math.floor((db+255)/8));
+                    if (++histogram[bI] > maxCount) { maxCount = histogram[bI]; bestBinIndex = bI; }
                 }
 
-                if (bestBinIndex === -1) {
-                    alert("Images are identical or lack enough background variation.");
-                    processingState.classList.add('hidden');
-                    return;
+                let sR=0, sG=0, sB=0, eC=0;
+                for (let i = 0; i < data1.length; i += 4) {
+                    let dr = data1[i]-data2[i], dg = data1[i+1]-data2[i+1], db = data1[i+2]-data2[i+2];
+                    let bI = ((Math.floor((dr+255)/8))<<12)|((Math.floor((dg+255)/8))<<6)|(Math.floor((db+255)/8));
+                    if (bI === bestBinIndex) { sR += dr; sG += dg; sB += db; eC++; }
+                }
+                const rR=sR/eC, rG=sG/eC, rB=sB/eC, rM=rR*rR+rG*rG+rB*rB;
+
+                for (let i = 0; i < data1.length; i += 4) {
+                    let aR = 1.0 - (( (data1[i]-data2[i])*rR + (data1[i+1]-data2[i+1])*rG + (data1[i+2]-data2[i+2])*rB ) / rM);
+                    data1[i+3] = Math.round(Math.max(0, Math.min(1, aR)) * 255);
                 }
 
-                let sumR = 0, sumG = 0, sumB = 0, exactCount = 0;
-                for (let i = 0; i < len; i += 4) {
-                    let dr = data1[i] - data2[i];
-                    let dg = data1[i+1] - data2[i+1];
-                    let db = data1[i+2] - data2[i+2];
+                outputCanvas.width = width; outputCanvas.height = height;
+                outputCanvas.getContext('2d').putImageData(imgData1, 0, 0);
+                processingState.classList.add('hidden'); resultSection.classList.remove('hidden');
 
-                    let binIndex = ((Math.floor((dr + 255) / binSize)) << 12) | ((Math.floor((dg + 255) / binSize)) << 6) | (Math.floor((db + 255) / binSize));
-                    if (binIndex === bestBinIndex) {
-                        sumR += dr; sumG += dg; sumB += db;
-                        exactCount++;
-                    }
-                }
-
-                const refR = sumR / exactCount;
-                const refG = sumG / exactCount;
-                const refB = sumB / exactCount;
-                const refMagSq = refR * refR + refG * refG + refB * refB;
-
-                for (let i = 0; i < len; i += 4) {
-                    let dr = data1[i] - data2[i];
-                    let dg = data1[i+1] - data2[i+1];
-                    let db = data1[i+2] - data2[i+2];
-
-                    let dot = dr * refR + dg * refG + db * refB;
-                    let ratio = dot / refMagSq;
-
-                    let alphaRatio = 1.0 - ratio;
-                    alphaRatio = Math.max(0, Math.min(1, alphaRatio));
-
-                    data1[i+3] = Math.round(alphaRatio * 255);
-                }
-
-                outputCanvas.width = width;
-                outputCanvas.height = height;
-                const outCtx = outputCanvas.getContext('2d');
-                outCtx.putImageData(imgData1, 0, 0);
-
-                processingState.classList.add('hidden');
-                resultSection.classList.remove('hidden');
-                
-                statsText.innerText = `Ready to download! ${watermarkToggle.checked ? '(Watermark removed)' : ''}`;
-
-                // --- FIXED DOWNLOAD BUTTON LOGIC ---
                 downloadBtn.onclick = () => {
                     outputCanvas.toBlob((blob) => {
                         const url = URL.createObjectURL(blob);
-                        const link = document.createElement('a');
-                        link.href = url;
-                        link.download = originalFileName;
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
+                        const link = document.createElement('a'); link.href = url; link.download = originalFileName;
+                        document.body.appendChild(link); link.click(); document.body.removeChild(link);
                         URL.revokeObjectURL(url);
                     }, 'image/png');
                 };
-
-            } catch (err) {
-                console.error(err);
-                alert("An error occurred during processing: " + err.message);
-                processingState.classList.add('hidden');
-            }
+            } catch (err) { console.error(err); processingState.classList.add('hidden'); }
         }
     </script>
 </body>
