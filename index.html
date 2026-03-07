@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crystal Clear - Background Remover</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #f3f4f6; color: #1f2937; }
+        .checkerboard {
+            background-image:
+                linear-gradient(45deg, #e5e7eb 25%, transparent 25%),
+                linear-gradient(-45deg, #e5e7eb 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #e5e7eb 75%),
+                linear-gradient(-45deg, transparent 75%, #e5e7eb 75%);
+            background-size: 80px 80px;
+            background-position: 0 0, 0 40px, 40px -40px, -40px 0px;
+            background-color: #ffffff;
+        }
+        
+        .rainbow-slide {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: 200%;
+            background: linear-gradient(90deg, 
+                #ffb3ba, #ffdfba, #ffffba, #baffc9, #bae1ff, #e8baff, #ffb3ba,
+                #ffdfba, #ffffba, #baffc9, #bae1ff, #e8baff, #ffb3ba);
+            animation: slideRainbow 12s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes slideRainbow {
+            0% { transform: translateX(-50%); }
+            100% { transform: translateX(0%); }
+        }
+
+        .drop-zone { transition: all 0.2s ease; }
+        .drop-zone.dragover { border-color: #3b82f6; background-color: #eff6ff; }
+        .loader {
+            border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6;
+            border-radius: 50%; width: 40px; height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    <!-- OpenCV.js Configuration and Loading -->
+    <script>
+        var cvReady = false;
+        var Module = {
+            onRuntimeInitialized: function() {
+                cvReady = true;
+            }
+        };
+    </script>
+    <script async src="https://docs.opencv.org/4.8.0/opencv.js" type="text/javascript"></script>
+</head>
+<body class="min-h-screen p-4 sm:p-6 font-sans flex flex-col items-center">
+    <div class="w-full max-w-7xl space-y-6">
+        
+        <!-- Header -->
+        <header class="text-center space-y-4">
+            <div>
+                <h1 class="text-3xl sm:text-5xl md:text-6xl font-extrabold text-gray-900 tracking-tight">Crystal Clear - Background Remover</h1>
+                <p class="text-lg sm:text-xl text-gray-600 font-medium mt-3">Preserves semi-transparency in shadows and glass.</p>
+            </div>
+            <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-5 max-w-3xl mx-auto text-sm sm:text-base shadow-sm text-left space-y-3">
+                <p>
+                    <strong>What it is:</strong> A smart tool that takes two images with different backgrounds and compares them mathematically to remove the background from any image—perfectly preserving soft shadows, glowing edges, and semi-transparent glass.
+                </p>
+                <p>
+                    <strong>How to use it:</strong> Ask any AI generator to give your image a <b>solid black background</b>, and then a <b>solid white background</b>. Upload both versions below to instantly get a flawless transparent PNG!
+                </p>
+            </div>
+        </header>
+
+        <!-- Controls & Upload Zones -->
+        <div class="flex flex-col items-center space-y-4">
+            
+            <!-- Upload Grid (Side by Side always) -->
+            <div class="grid grid-cols-2 gap-3 w-full max-w-4xl">
+                <!-- Image 1 Input -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 flex flex-col items-center justify-start space-y-2">
+                    <h2 class="text-sm sm:text-base font-bold text-center">Image 1</h2>
+                    <p class="text-xs text-gray-500 text-center font-bold text-black">MUST BE BLACK BG</p>
+                    <label id="drop-zone-1" class="drop-zone w-full h-full min-h-[120px] border-2 border-dashed border-gray-300 rounded-lg p-2 sm:p-4 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 relative overflow-hidden">
+                        <svg class="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        <span class="text-xs sm:text-sm font-medium text-gray-600 text-center" id="label-text-1">Upload Image 1</span>
+                        <input type="file" id="input-img-1" class="hidden" accept="image/*" />
+                        <div id="preview-container-1" class="hidden absolute inset-0 bg-[#808080] flex items-center justify-center p-1">
+                            <img id="preview-1" class="max-w-full max-h-full object-contain drop-shadow-md" />
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Image 2 Input -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 flex flex-col items-center justify-start space-y-2">
+                    <h2 class="text-sm sm:text-base font-bold text-center">Image 2</h2>
+                    <p class="text-xs text-gray-500 text-center font-bold text-black">WHITE OR COLOR BG</p>
+                    <label id="drop-zone-2" class="drop-zone w-full h-full min-h-[120px] border-2 border-dashed border-gray-300 rounded-lg p-2 sm:p-4 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 relative overflow-hidden">
+                        <svg class="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        <span class="text-xs sm:text-sm font-medium text-gray-600 text-center" id="label-text-2">Upload Image 2</span>
+                        <input type="file" id="input-img-2" class="hidden" accept="image/*" />
+                        <div id="preview-container-2" class="hidden absolute inset-0 bg-[#808080] flex items-center justify-center p-1">
+                            <img id="preview-2" class="max-w-full max-h-full object-contain drop-shadow-md" />
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Watermark Toggle -->
+            <div class="flex flex-col items-center space-y-1 mt-2">
+                <label class="inline-flex items-center cursor-pointer bg-white px-4 py-2 rounded-full shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+                    <input type="checkbox" id="watermark-toggle" class="sr-only peer">
+                    <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    <span class="ms-3 text-sm font-semibold text-gray-700">✨ Remove Gemini Watermark</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Processing State -->
+        <div id="processing-state" class="hidden flex-col items-center justify-center space-y-4 py-8">
+            <div class="loader"></div>
+            <p class="text-gray-600 font-medium" id="loading-message">Processing image...</p>
+        </div>
+
+        <!-- Result Section -->
+        <div id="result-section" class="hidden bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden flex flex-col w-full">
+            <div class="p-4 sm:p-6 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center bg-gray-50 gap-4">
+                <div class="text-center sm:text-left">
+                    <h2 class="text-xl sm:text-2xl font-bold text-gray-800">Final Transparent Result</h2>
+                    <p class="text-xs sm:text-sm text-green-600 font-medium mt-1" id="stats-text"></p>
+                </div>
+                <button id="download-btn" class="w-full sm:w-auto flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold transition-colors shadow-md text-lg">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    <span>Download PNG</span>
+                </button>
+            </div>
+            
+            <div class="p-4 sm:p-8 flex justify-center items-center bg-gray-800 min-h-[40vh] sm:min-h-[60vh]">
+                <div class="rounded-xl overflow-hidden shadow-2xl border border-gray-600 relative inline-flex max-w-full">
+                    <div class="absolute inset-0 checkerboard z-0"></div>
+                    <div class="absolute inset-0 overflow-hidden z-10 opacity-50 mix-blend-multiply">
+                        <div class="rainbow-slide"></div>
+                    </div>
+                    <canvas id="output-canvas" class="max-w-full max-h-[75vh] object-contain block relative z-20"></canvas>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+
+    <script>
+        const input1 = document.getElementById('input-img-1');
+        const input2 = document.getElementById('input-img-2');
+        const preview1 = document.getElementById('preview-1');
+        const preview2 = document.getElementById('preview-2');
+        const container1 = document.getElementById('preview-container-1');
+        const container2 = document.getElementById('preview-container-2');
+        const labelText1 = document.getElementById('label-text-1');
+        const labelText2 = document.getElementById('label-text-2');
+        const processingState = document.getElementById('processing-state');
+        const loadingMessage = document.getElementById('loading-message');
+        const resultSection = document.getElementById('result-section');
+        const outputCanvas = document.getElementById('output-canvas');
+        const statsText = document.getElementById('stats-text');
+        const downloadBtn = document.getElementById('download-btn');
+        const watermarkToggle = document.getElementById('watermark-toggle');
+
+        let image1Data = null;
+        let image2Data = null;
+        let originalFileName = "extracted-subject.png";
+
+        function setupDropZone(dropZoneId, inputElement) {
+            const dropZone = document.getElementById(dropZoneId);
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+            dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dragover'); });
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                if (e.dataTransfer.files.length) {
+                    inputElement.files = e.dataTransfer.files;
+                    inputElement.dispatchEvent(new Event('change'));
+                }
+            });
+        }
+
+        setupDropZone('drop-zone-1', input1);
+        setupDropZone('drop-zone-2', input2);
+
+        function handleImageUpload(inputElement, previewElement, containerElement, labelElement, isImage1) {
+            inputElement.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                if (isImage1) {
+                    const lastDot = file.name.lastIndexOf('.');
+                    if (lastDot !== -1) {
+                        originalFileName = file.name.substring(0, lastDot) + '-transparent.png';
+                    } else {
+                        originalFileName = file.name + '-transparent.png';
+                    }
+                }
+
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        previewElement.src = event.target.result;
+                        containerElement.classList.remove('hidden');
+                        
+                        if (isImage1) image1Data = img;
+                        else image2Data = img;
+
+                        checkAndProcessImages();
+                    }
+                    img.src = event.target.result;
+                }
+                reader.readAsDataURL(file);
+            });
+        }
+
+        handleImageUpload(input1, preview1, container1, labelText1, true);
+        handleImageUpload(input2, preview2, container2, labelText2, false);
+
+        watermarkToggle.addEventListener('change', checkAndProcessImages);
+
+        function checkAndProcessImages() {
+            if (image1Data && image2Data) {
+                if (watermarkToggle.checked && !cvReady) {
+                    alert("Please wait for the tools to finish loading in the background.");
+                    return;
+                }
+
+                resultSection.classList.add('hidden');
+                processingState.classList.remove('hidden');
+                processingState.classList.add('flex');
+                
+                setTimeout(() => {
+                    processMatting();
+                }, 50);
+            }
+        }
+
+        // --- SURGICAL SVG TEMPLATE MATCHING ALGORITHM ---
+        function applyCVInpainting(canvas, width, height) {
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            
+            const searchSizeW = Math.max(120, Math.floor(width * 0.25));
+            const searchSizeH = Math.max(120, Math.floor(height * 0.25));
+            const startX = width - searchSizeW;
+            const startY = height - searchSizeH;
+
+            const cornerImgData = ctx.getImageData(startX, startY, searchSizeW, searchSizeH);
+            let cornerMat = cv.matFromImageData(cornerImgData);
+            let cornerGray = new cv.Mat();
+            cv.cvtColor(cornerMat, cornerGray, cv.COLOR_RGBA2GRAY);
+
+            let cornerEdges = new cv.Mat();
+            cv.Canny(cornerGray, cornerEdges, 40, 120);
+
+            let bestVal = -1;
+            let bestLoc = null;
+            let bestSize = 0;
+
+            const baseSize = Math.max(20, Math.floor(Math.min(width, height) * 0.05));
+            const minSize = Math.max(10, Math.floor(baseSize * 0.4));
+            const maxSize = Math.max(40, Math.floor(baseSize * 2.0));
+
+            const svgPath = "M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z";
+
+            for (let size = minSize; size <= maxSize; size += 2) {
+                const cvsTmp = document.createElement('canvas');
+                cvsTmp.width = size; cvsTmp.height = size;
+                const ctxTmp = cvsTmp.getContext('2d');
+                ctxTmp.fillStyle = "black";
+                ctxTmp.fillRect(0, 0, size, size);
+                ctxTmp.fillStyle = "white";
+                ctxTmp.scale(size / 24.0, size / 24.0);
+                ctxTmp.fill(new Path2D(svgPath));
+
+                let tmplImgData = ctxTmp.getImageData(0, 0, size, size);
+                let tmplMat = cv.matFromImageData(tmplImgData);
+                let tmplGray = new cv.Mat();
+                cv.cvtColor(tmplMat, tmplGray, cv.COLOR_RGBA2GRAY);
+                let tmplEdges = new cv.Mat();
+                cv.Canny(tmplGray, tmplEdges, 50, 150);
+
+                let result = new cv.Mat();
+                cv.matchTemplate(cornerEdges, tmplEdges, result, cv.TM_CCOEFF_NORMED);
+                let minMax = cv.minMaxLoc(result);
+
+                if (minMax.maxVal > bestVal) {
+                    bestVal = minMax.maxVal;
+                    bestLoc = minMax.maxLoc;
+                    bestSize = size;
+                }
+                tmplMat.delete(); tmplGray.delete(); tmplEdges.delete(); result.delete();
+            }
+
+            if (bestVal > 0.15 && bestLoc !== null) {
+                let exactMask = cv.Mat.zeros(searchSizeH, searchSizeW, cv.CV_8UC1);
+                const cvsTmp = document.createElement('canvas');
+                cvsTmp.width = bestSize; cvsTmp.height = bestSize;
+                const ctxTmp = cvsTmp.getContext('2d');
+                ctxTmp.fillStyle = "black";
+                ctxTmp.fillRect(0, 0, bestSize, bestSize);
+                ctxTmp.fillStyle = "white";
+                ctxTmp.scale(bestSize / 24.0, bestSize / 24.0);
+                ctxTmp.fill(new Path2D(svgPath));
+
+                let winImgData = ctxTmp.getImageData(0, 0, bestSize, bestSize);
+                let winMat = cv.matFromImageData(winImgData);
+                let winGray = new cv.Mat();
+                cv.cvtColor(winMat, winGray, cv.COLOR_RGBA2GRAY);
+
+                let roi = exactMask.roi(new cv.Rect(bestLoc.x, bestLoc.y, bestSize, bestSize));
+                winGray.copyTo(roi);
+
+                let M = cv.Mat.ones(3, 3, cv.CV_8U);
+                cv.dilate(exactMask, exactMask, M, new cv.Point(-1, -1), 4, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
+
+                let cornerRGB = new cv.Mat();
+                cv.cvtColor(cornerMat, cornerRGB, cv.COLOR_RGBA2RGB);
+                let dstRGB = new cv.Mat();
+                cv.inpaint(cornerRGB, exactMask, dstRGB, 5, cv.INPAINT_TELEA);
+
+                let dstRGBA = new cv.Mat();
+                cv.cvtColor(dstRGB, dstRGBA, cv.COLOR_RGB2RGBA);
+
+                let outData = dstRGBA.data;
+                let exactMaskData = exactMask.data;
+                for (let i = 0; i < searchSizeW * searchSizeH; i++) {
+                    if (exactMaskData[i] > 0) {
+                        let idx = i * 4;
+                        cornerImgData.data[idx] = outData[idx];
+                        cornerImgData.data[idx+1] = outData[idx+1];
+                        cornerImgData.data[idx+2] = outData[idx+2];
+                    }
+                }
+                ctx.putImageData(cornerImgData, startX, startY);
+
+                winMat.delete(); winGray.delete(); roi.delete(); M.delete();
+                exactMask.delete(); cornerRGB.delete(); dstRGB.delete(); dstRGBA.delete();
+            }
+            cornerMat.delete(); cornerGray.delete(); cornerEdges.delete();
+        }
+
+        function processMatting() {
+            try {
+                loadingMessage.innerText = watermarkToggle.checked ? "Removing watermark..." : "Extracting background...";
+
+                const width = image1Data.naturalWidth || image1Data.width;
+                const height = image1Data.naturalHeight || image1Data.height;
+
+                const cvs1 = document.createElement('canvas');
+                const cvs2 = document.createElement('canvas');
+                cvs1.width = width; cvs1.height = height;
+                cvs2.width = width; cvs2.height = height;
+
+                const ctx1 = cvs1.getContext('2d', { willReadFrequently: true });
+                const ctx2 = cvs2.getContext('2d', { willReadFrequently: true });
+
+                ctx1.drawImage(image1Data, 0, 0, width, height);
+                ctx2.drawImage(image2Data, 0, 0, width, height);
+
+                if (watermarkToggle.checked && cvReady) {
+                    applyCVInpainting(cvs1, width, height);
+                    applyCVInpainting(cvs2, width, height);
+                }
+
+                loadingMessage.innerText = "Processing transparency...";
+
+                const imgData1 = ctx1.getImageData(0, 0, width, height);
+                const imgData2 = ctx2.getImageData(0, 0, width, height);
+                const data1 = imgData1.data;
+                const data2 = imgData2.data;
+
+                const len = data1.length;
+                const histogram = new Uint32Array(262144); 
+                
+                let maxCount = 0;
+                let bestBinIndex = -1;
+                const binSize = 8; 
+
+                for (let i = 0; i < len; i += 4) {
+                    let dr = data1[i] - data2[i];
+                    let dg = data1[i+1] - data2[i+1];
+                    let db = data1[i+2] - data2[i+2];
+
+                    if (Math.abs(dr) < 5 && Math.abs(dg) < 5 && Math.abs(db) < 5) continue; 
+
+                    let binR = Math.floor((dr + 255) / binSize);
+                    let binG = Math.floor((dg + 255) / binSize);
+                    let binB = Math.floor((db + 255) / binSize);
+                    
+                    let binIndex = (binR << 12) | (binG << 6) | binB;
+                    let count = ++histogram[binIndex];
+
+                    if (count > maxCount) {
+                        maxCount = count;
+                        bestBinIndex = binIndex;
+                    }
+                }
+
+                if (bestBinIndex === -1) {
+                    alert("Images are identical or lack enough background variation.");
+                    processingState.classList.add('hidden');
+                    return;
+                }
+
+                let sumR = 0, sumG = 0, sumB = 0, exactCount = 0;
+                for (let i = 0; i < len; i += 4) {
+                    let dr = data1[i] - data2[i];
+                    let dg = data1[i+1] - data2[i+1];
+                    let db = data1[i+2] - data2[i+2];
+
+                    let binIndex = ((Math.floor((dr + 255) / binSize)) << 12) | ((Math.floor((dg + 255) / binSize)) << 6) | (Math.floor((db + 255) / binSize));
+                    if (binIndex === bestBinIndex) {
+                        sumR += dr; sumG += dg; sumB += db;
+                        exactCount++;
+                    }
+                }
+
+                const refR = sumR / exactCount;
+                const refG = sumG / exactCount;
+                const refB = sumB / exactCount;
+                const refMagSq = refR * refR + refG * refG + refB * refB;
+
+                for (let i = 0; i < len; i += 4) {
+                    let dr = data1[i] - data2[i];
+                    let dg = data1[i+1] - data2[i+1];
+                    let db = data1[i+2] - data2[i+2];
+
+                    let dot = dr * refR + dg * refG + db * refB;
+                    let ratio = dot / refMagSq;
+
+                    let alphaRatio = 1.0 - ratio;
+                    alphaRatio = Math.max(0, Math.min(1, alphaRatio));
+
+                    data1[i+3] = Math.round(alphaRatio * 255);
+                }
+
+                outputCanvas.width = width;
+                outputCanvas.height = height;
+                const outCtx = outputCanvas.getContext('2d');
+                outCtx.putImageData(imgData1, 0, 0);
+
+                processingState.classList.add('hidden');
+                resultSection.classList.remove('hidden');
+                
+                statsText.innerText = `Ready to download! ${watermarkToggle.checked ? '(Watermark removed)' : ''}`;
+
+                // --- FIXED DOWNLOAD BUTTON LOGIC ---
+                downloadBtn.onclick = () => {
+                    outputCanvas.toBlob((blob) => {
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = originalFileName;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                    }, 'image/png');
+                };
+
+            } catch (err) {
+                console.error(err);
+                alert("An error occurred during processing: " + err.message);
+                processingState.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
