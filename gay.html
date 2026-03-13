@@ -1,303 +1,333 @@
-import React, { useState, useEffect, useCallback } from 'react';
-
-// --- SVGs for the Game ---
-const UrinalSVG = () => (
-  <svg viewBox="0 0 64 96" className="w-full h-auto max-h-32 drop-shadow-md">
-    {/* Pipe */}
-    <rect x="28" y="4" width="8" height="12" fill="#cbd5e1" />
-    <rect x="24" y="2" width="16" height="4" fill="#94a3b8" rx="2" />
-    {/* Main Body Back */}
-    <path d="M 16 16 C 16 16, 48 16, 48 16 C 56 16, 56 24, 56 24 L 56 72 C 56 88, 48 92, 32 92 C 16 92, 8 88, 8 72 L 8 24 C 8 24, 8 16, 16 16 Z" fill="#f8fafc" />
-    {/* Bowl Inner */}
-    <path d="M 14 36 C 14 36, 50 36, 50 36 C 50 36, 50 76, 32 76 C 14 76, 14 36, 14 36 Z" fill="#e2e8f0" />
-    {/* Drain */}
-    <circle cx="32" cy="64" r="3" fill="#94a3b8" />
-    {/* Side Walls */}
-    <path d="M 8 24 C 8 24, 14 24, 14 36 L 14 76 C 14 84, 8 84, 8 72 Z" fill="#e2e8f0" />
-    <path d="M 56 24 C 56 24, 50 24, 50 36 L 50 76 C 50 84, 56 84, 56 72 Z" fill="#e2e8f0" />
-  </svg>
-);
-
-const GuySVG = () => (
-  <svg viewBox="0 0 64 96" className="w-full h-auto max-h-32 absolute bottom-0 left-0 drop-shadow-xl z-10" style={{ transform: 'translateY(10px)' }}>
-    {/* Head */}
-    <circle cx="32" cy="16" r="10" fill="#1e293b" />
-    {/* Body */}
-    <rect x="20" y="30" width="24" height="32" rx="6" fill="#1e293b" />
-    {/* Left Arm */}
-    <rect x="12" y="32" width="6" height="24" rx="3" fill="#1e293b" />
-    {/* Right Arm */}
-    <rect x="46" y="32" width="6" height="24" rx="3" fill="#1e293b" />
-    {/* Left Leg */}
-    <rect x="22" y="60" width="8" height="30" rx="4" fill="#1e293b" />
-    {/* Right Leg */}
-    <rect x="34" y="60" width="8" height="30" rx="4" fill="#1e293b" />
-  </svg>
-);
-
-
-export default function App() {
-  const [score, setScore] = useState(0);
-  const [urinals, setUrinals] = useState([]);
-  const [gameOver, setGameOver] = useState(false);
-  const [failReason, setFailReason] = useState("");
-  const [timeLeft, setTimeLeft] = useState(5000);
-  const [timeLimit, setTimeLimit] = useState(5000);
-  const [failedIndex, setFailedIndex] = useState(null);
-
-  // Game Logic Functions
-  const generateRound = useCallback((currentScore = 0) => {
-    // Random number of urinals between 2 and 10
-    const numUrinals = Math.floor(Math.random() * 9) + 2;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Urinal Etiquette</title>
     
-    let newUrinals = [];
-    let isValid = false;
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Load React -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Load Babel (Translates JSX/React into browser-readable JavaScript) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+    <!-- This is where the React app will be injected -->
+    <div id="root"></div>
 
-    // Keep generating until constraints are met (at least 1 guy, at least 1 empty)
-    while (!isValid) {
-      newUrinals = [];
-      let guyCount = 0;
-      let emptyCount = 0;
+    <!-- The React Code -->
+    <script type="text/babel">
+      const { useState, useEffect, useCallback } = React;
 
-      for (let i = 0; i < numUrinals; i++) {
-        const hasGuy = Math.random() > 0.5; // 50% chance for a guy
-        newUrinals.push(hasGuy);
-        if (hasGuy) guyCount++;
-        else emptyCount++;
-      }
+      // --- SVGs for the Game ---
+      const UrinalSVG = () => (
+        <svg viewBox="0 0 64 96" className="w-full h-auto max-h-32 drop-shadow-md">
+          {/* Pipe */}
+          <rect x="28" y="4" width="8" height="12" fill="#cbd5e1" />
+          <rect x="24" y="2" width="16" height="4" fill="#94a3b8" rx="2" />
+          {/* Main Body Back */}
+          <path d="M 16 16 C 16 16, 48 16, 48 16 C 56 16, 56 24, 56 24 L 56 72 C 56 88, 48 92, 32 92 C 16 92, 8 88, 8 72 L 8 24 C 8 24, 8 16, 16 16 Z" fill="#f8fafc" />
+          {/* Bowl Inner */}
+          <path d="M 14 36 C 14 36, 50 36, 50 36 C 50 36, 50 76, 32 76 C 14 76, 14 36, 14 36 Z" fill="#e2e8f0" />
+          {/* Drain */}
+          <circle cx="32" cy="64" r="3" fill="#94a3b8" />
+          {/* Side Walls */}
+          <path d="M 8 24 C 8 24, 14 24, 14 36 L 14 76 C 14 84, 8 84, 8 72 Z" fill="#e2e8f0" />
+          <path d="M 56 24 C 56 24, 50 24, 50 36 L 50 76 C 50 84, 56 84, 56 72 Z" fill="#e2e8f0" />
+        </svg>
+      );
 
-      if (guyCount >= 1 && emptyCount >= 1) {
-        isValid = true;
-      }
-    }
+      const GuySVG = () => (
+        <svg viewBox="0 0 64 96" className="w-full h-auto max-h-32 absolute bottom-0 left-0 drop-shadow-xl z-10" style={{ transform: 'translateY(10px)' }}>
+          {/* Head */}
+          <circle cx="32" cy="16" r="10" fill="#1e293b" />
+          {/* Body */}
+          <rect x="20" y="30" width="24" height="32" rx="6" fill="#1e293b" />
+          {/* Left Arm */}
+          <rect x="12" y="32" width="6" height="24" rx="3" fill="#1e293b" />
+          {/* Right Arm */}
+          <rect x="46" y="32" width="6" height="24" rx="3" fill="#1e293b" />
+          {/* Left Leg */}
+          <rect x="22" y="60" width="8" height="30" rx="4" fill="#1e293b" />
+          {/* Right Leg */}
+          <rect x="34" y="60" width="8" height="30" rx="4" fill="#1e293b" />
+        </svg>
+      );
 
-    setUrinals(newUrinals);
+      function App() {
+        const [score, setScore] = useState(0);
+        const [urinals, setUrinals] = useState([]);
+        const [gameOver, setGameOver] = useState(false);
+        const [failReason, setFailReason] = useState("");
+        const [timeLeft, setTimeLeft] = useState(5000);
+        const [timeLimit, setTimeLimit] = useState(5000);
+        const [failedIndex, setFailedIndex] = useState(null);
 
-    // Exponential decay timer: 5s initially, ~0.5s near score 50
-    const newTimeLimit = 500 + 4500 * Math.exp(-0.06 * currentScore);
-    setTimeLimit(newTimeLimit);
-    setTimeLeft(newTimeLimit);
-  }, []);
+        // Game Logic Functions
+        const generateRound = useCallback((currentScore = 0) => {
+          // Random number of urinals between 2 and 10
+          const numUrinals = Math.floor(Math.random() * 9) + 2;
+          
+          let newUrinals = [];
+          let isValid = false;
 
-  useEffect(() => {
-    generateRound(0);
-  }, [generateRound]);
+          // Keep generating until constraints are met (at least 1 guy, at least 1 empty)
+          while (!isValid) {
+            newUrinals = [];
+            let guyCount = 0;
+            let emptyCount = 0;
 
-  // Timer loop
-  useEffect(() => {
-    if (gameOver) return;
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => prev - 50);
-    }, 50);
-    return () => clearInterval(timer);
-  }, [gameOver]);
+            for (let i = 0; i < numUrinals; i++) {
+              const hasGuy = Math.random() > 0.5; // 50% chance for a guy
+              newUrinals.push(hasGuy);
+              if (hasGuy) guyCount++;
+              else emptyCount++;
+            }
 
-  const countAdjacentGuys = (index, currentUrinals) => {
-    let count = 0;
-    if (index > 0 && currentUrinals[index - 1]) count++;
-    if (index < currentUrinals.length - 1 && currentUrinals[index + 1]) count++;
-    return count;
-  };
+            if (guyCount >= 1 && emptyCount >= 1) {
+              isValid = true;
+            }
+          }
 
-  const getBestAvailableTier = (currentUrinals) => {
-    let bestTier = 2; // Worst case: sandwiched between 2 guys
-    for (let i = 0; i < currentUrinals.length; i++) {
-      if (!currentUrinals[i]) { // Only evaluate empty urinals
-        const tier = countAdjacentGuys(i, currentUrinals);
-        if (tier < bestTier) {
-          bestTier = tier;
-        }
-      }
-    }
-    return bestTier;
-  };
+          setUrinals(newUrinals);
 
-  const playGameOverSound = () => {
-    try {
-      // Using the specific audio file requested
-      const audio = new Audio('https://www.myinstants.com/media/sounds/gey.mp3');
-      audio.play().catch((e) => {
-        console.log("Audio play failed, fallback triggered.", e);
-        // Fallback tone just in case the URL gets blocked by CORS or adblockers
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ctx.createOscillator();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(150, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.5);
-        osc.connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.5);
-      });
-    } catch (err) {
-      console.error("Audio error", err);
-    }
-  };
+          // Exponential decay timer: 5s initially, ~0.5s near score 50
+          const newTimeLimit = 500 + 4500 * Math.exp(-0.06 * currentScore);
+          setTimeLimit(newTimeLimit);
+          setTimeLeft(newTimeLimit);
+        }, []);
 
-  const triggerGameOver = () => {
-    setGameOver(true);
-    playGameOverSound();
-  };
+        useEffect(() => {
+          generateRound(0);
+        }, [generateRound]);
 
-  // Check for time out
-  useEffect(() => {
-    if (timeLeft <= 0 && !gameOver) {
-      setFailReason("You took too long! You peed your pants.");
-      setFailedIndex(null);
-      triggerGameOver();
-    }
-  }, [timeLeft, gameOver]);
+        // Timer loop
+        useEffect(() => {
+          if (gameOver) return;
+          const timer = setInterval(() => {
+            setTimeLeft((prev) => prev - 50);
+          }, 50);
+          return () => clearInterval(timer);
+        }, [gameOver]);
 
-  const handleUrinalClick = (index) => {
-    if (gameOver) return;
+        const countAdjacentGuys = (index, currentUrinals) => {
+          let count = 0;
+          if (index > 0 && currentUrinals[index - 1]) count++;
+          if (index < currentUrinals.length - 1 && currentUrinals[index + 1]) count++;
+          return count;
+        };
 
-    const clickedOccupied = urinals[index];
+        const getBestAvailableTier = (currentUrinals) => {
+          let bestTier = 2; // Worst case: sandwiched between 2 guys
+          for (let i = 0; i < currentUrinals.length; i++) {
+            if (!currentUrinals[i]) { // Only evaluate empty urinals
+              const tier = countAdjacentGuys(i, currentUrinals);
+              if (tier < bestTier) {
+                bestTier = tier;
+              }
+            }
+          }
+          return bestTier;
+        };
 
-    // Rule 1: Clicked a guy directly
-    if (clickedOccupied) {
-      setFailReason("You walked right up to an occupied urinal!");
-      setFailedIndex(index);
-      triggerGameOver();
-      return;
-    }
+        const playGameOverSound = () => {
+          try {
+            // Using the specific audio file requested
+            const audio = new Audio('https://www.myinstants.com/media/sounds/gey.mp3');
+            audio.play().catch((e) => {
+              console.log("Audio play failed, fallback triggered.", e);
+              // Fallback tone just in case the URL gets blocked by CORS or adblockers
+              const ctx = new (window.AudioContext || window.webkitAudioContext)();
+              const osc = ctx.createOscillator();
+              osc.type = 'sawtooth';
+              osc.frequency.setValueAtTime(150, ctx.currentTime);
+              osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.5);
+              osc.connect(ctx.destination);
+              osc.start();
+              osc.stop(ctx.currentTime + 0.5);
+            });
+          } catch (err) {
+            console.error("Audio error", err);
+          }
+        };
 
-    // Rule 2: The Unwritten Etiquette Rule (Refined Tiers)
-    const myTier = countAdjacentGuys(index, urinals);
-    const bestTier = getBestAvailableTier(urinals);
+        const triggerGameOver = () => {
+          setGameOver(true);
+          playGameOverSound();
+        };
 
-    if (myTier > bestTier) {
-      if (bestTier === 0) {
-        setFailReason("Etiquette Violation! You picked a urinal next to a guy when a perfectly isolated one was available!");
-      } else if (bestTier === 1) {
-        setFailReason("Etiquette Violation! You sandwiched yourself between two guys when you could have stood next to just one!");
-      }
-      setFailedIndex(index);
-      triggerGameOver();
-      return;
-    }
+        // Check for time out
+        useEffect(() => {
+          if (timeLeft <= 0 && !gameOver) {
+            setFailReason("You took too long! You peed your pants.");
+            setFailedIndex(null);
+            triggerGameOver();
+          }
+        }, [timeLeft, gameOver]);
 
-    // Success!
-    const newScore = score + 1;
-    setScore(newScore);
-    generateRound(newScore);
-  };
+        const handleUrinalClick = (index) => {
+          if (gameOver) return;
 
-  const restartGame = () => {
-    setScore(0);
-    setGameOver(false);
-    setFailReason("");
-    setFailedIndex(null);
-    generateRound(0);
-  };
+          const clickedOccupied = urinals[index];
 
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center font-sans p-4 text-slate-800 overflow-hidden relative bg-slate-100">
-      
-      {/* Bathroom Wallpaper Background */}
-      <div className="absolute inset-0 z-0 opacity-60" style={{
-        backgroundImage: `url('https://media.istockphoto.com/id/1270259016/vector/white-clean-wall-with-window-light.jpg?s=612x612&w=0&k=20&c=c9mLnnAOfFrfyCixiy5yqirH8VOmWDDV96POsoM_bd4=')`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center'
-      }}></div>
+          // Rule 1: Clicked a guy directly
+          if (clickedOccupied) {
+            setFailReason("You walked right up to an occupied urinal!");
+            setFailedIndex(index);
+            triggerGameOver();
+            return;
+          }
 
-      <div className="relative z-10 w-full flex flex-col items-center">
-        {/* Header Area */}
-        <div className="text-center mb-6 bg-white/80 px-8 py-4 rounded-2xl border border-slate-200 shadow-sm backdrop-blur-sm">
-          <h1 className="text-3xl sm:text-5xl font-extrabold mb-2 tracking-tight text-slate-800">
-            Urinal Etiquette
-          </h1>
-          <p className="text-lg text-slate-600 font-bold">Score: <span className="text-blue-600 text-3xl">{score}</span></p>
-        </div>
+          // Rule 2: The Unwritten Etiquette Rule (Refined Tiers)
+          const myTier = countAdjacentGuys(index, urinals);
+          const bestTier = getBestAvailableTier(urinals);
 
-        {/* Timer Progress Bar */}
-        <div className="w-full max-w-2xl bg-white/80 h-4 rounded-full mb-8 overflow-hidden shadow-sm border border-slate-200">
-          <div 
-            className={`h-full transition-all ease-linear duration-75 ${timeLeft / timeLimit > 0.5 ? 'bg-emerald-500' : timeLeft / timeLimit > 0.25 ? 'bg-yellow-400' : 'bg-red-500'}`}
-            style={{ width: `${Math.max(0, (timeLeft / timeLimit) * 100)}%` }}
-          ></div>
-        </div>
+          if (myTier > bestTier) {
+            if (bestTier === 0) {
+              setFailReason("Etiquette Violation! You picked a urinal next to a guy when a perfectly isolated one was available!");
+            } else if (bestTier === 1) {
+              setFailReason("Etiquette Violation! You sandwiched yourself between two guys when you could have stood next to just one!");
+            }
+            setFailedIndex(index);
+            triggerGameOver();
+            return;
+          }
 
-        {/* Main Game Board */}
-        <div className="w-full max-w-5xl px-2 pb-8 pt-4">
-          <div className="flex flex-row items-end justify-center w-full gap-1 sm:gap-4 mx-auto">
-            {urinals.map((isOccupied, index) => {
-              const isFailed = gameOver && failedIndex === index;
-              return (
-              <div 
-                key={index}
-                onClick={() => handleUrinalClick(index)}
-                className={`relative flex flex-col items-center cursor-pointer group transition-transform flex-1 max-w-[90px] ${!gameOver ? 'active:scale-95' : ''}`}
-              >
-                {/* The Urinal */}
-                <div className={`relative p-1 sm:p-2 rounded-xl transition-all duration-200 w-full flex justify-center ${isFailed ? 'bg-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.6)] border border-red-500' : (!gameOver ? 'hover:bg-white/60 border border-transparent' : 'border border-transparent opacity-70')}`}>
-                  <UrinalSVG />
-                  
-                  {/* The Guy (Conditionally Rendered) */}
-                  {isOccupied && <GuySVG />}
-                </div>
-              </div>
-            )})}
-          </div>
-        </div>
+          // Success!
+          const newScore = score + 1;
+          setScore(newScore);
+          generateRound(newScore);
+        };
 
-        {/* Instructions / Footer */}
-        {!gameOver && (
-          <div className="mt-8 text-center max-w-md text-slate-600 text-sm bg-white/80 p-5 rounded-xl border border-slate-200 backdrop-blur-sm shadow-sm">
-            <p className="mb-2"><strong>How to play:</strong> Click on an empty urinal to progress.</p>
-            <p><strong>The Golden Rule:</strong> Never stand next to someone if an empty, non-adjacent urinal is available elsewhere!</p>
-          </div>
-        )}
-      </div>
+        const restartGame = () => {
+          setScore(0);
+          setGameOver(false);
+          setFailReason("");
+          setFailedIndex(null);
+          generateRound(0);
+        };
 
-      {/* Game Over Modal */}
-      {gameOver && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 animate-in fade-in duration-200 backdrop-blur-sm">
-          <div className="bg-white border border-slate-200 p-6 sm:p-8 rounded-3xl shadow-2xl max-w-2xl w-full text-center transform transition-all scale-100 animate-in zoom-in-95 relative overflow-hidden">
+        return (
+          <div className="min-h-screen flex flex-col items-center justify-center font-sans p-4 text-slate-800 overflow-hidden relative bg-slate-100">
             
-            <h2 
-              className="text-4xl sm:text-5xl font-black mb-2 tracking-tight text-transparent bg-clip-text"
-              style={{ backgroundImage: 'linear-gradient(to right, #ef4444, #f97316, #eab308, #22c55e, #3b82f6, #6366f1, #a855f7)' }}
-            >
-              Why are you Gay?
-            </h2>
-            <p className="text-slate-600 text-sm sm:text-base mb-6 leading-relaxed font-semibold">
-              {failReason}
-            </p>
+            {/* Bathroom Wallpaper Background */}
+            <div className="absolute inset-0 z-0 opacity-60" style={{
+              backgroundImage: `url('https://media.istockphoto.com/id/1270259016/vector/white-clean-wall-with-window-light.jpg?s=612x612&w=0&k=20&c=c9mLnnAOfFrfyCixiy5yqirH8VOmWDDV96POsoM_bd4=')`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center'
+            }}></div>
 
-            {/* The Setup Where They Died */}
-            <div className="bg-slate-100 rounded-2xl p-4 sm:p-6 mb-6 shadow-inner border border-slate-200">
-              <div className="flex flex-row items-end justify-center w-full gap-1 sm:gap-2 mx-auto">
-                {urinals.map((isOccupied, index) => {
-                  const isFailed = failedIndex === index;
-                  return (
+            <div className="relative z-10 w-full flex flex-col items-center">
+              {/* Header Area */}
+              <div className="text-center mb-6 bg-white/80 px-8 py-4 rounded-2xl border border-slate-200 shadow-sm backdrop-blur-sm">
+                <h1 className="text-3xl sm:text-5xl font-extrabold mb-2 tracking-tight text-slate-800">
+                  Urinal Etiquette
+                </h1>
+                <p className="text-lg text-slate-600 font-bold">Score: <span className="text-blue-600 text-3xl">{score}</span></p>
+              </div>
+
+              {/* Timer Progress Bar */}
+              <div className="w-full max-w-2xl bg-white/80 h-4 rounded-full mb-8 overflow-hidden shadow-sm border border-slate-200">
+                <div 
+                  className={`h-full transition-all ease-linear duration-75 ${timeLeft / timeLimit > 0.5 ? 'bg-emerald-500' : timeLeft / timeLimit > 0.25 ? 'bg-yellow-400' : 'bg-red-500'}`}
+                  style={{ width: `${Math.max(0, (timeLeft / timeLimit) * 100)}%` }}
+                ></div>
+              </div>
+
+              {/* Main Game Board */}
+              <div className="w-full max-w-5xl px-2 pb-8 pt-4">
+                <div className="flex flex-row items-end justify-center w-full gap-1 sm:gap-4 mx-auto">
+                  {urinals.map((isOccupied, index) => {
+                    const isFailed = gameOver && failedIndex === index;
+                    return (
                     <div 
                       key={index}
-                      className="relative flex flex-col items-center flex-1 max-w-[70px]"
+                      onClick={() => handleUrinalClick(index)}
+                      className={`relative flex flex-col items-center cursor-pointer group transition-transform flex-1 max-w-[90px] ${!gameOver ? 'active:scale-95' : ''}`}
                     >
                       {/* The Urinal */}
-                      <div className={`relative p-1 rounded-xl w-full flex justify-center ${isFailed ? 'bg-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.5)] border border-red-500' : 'opacity-60'}`}>
+                      <div className={`relative p-1 sm:p-2 rounded-xl transition-all duration-200 w-full flex justify-center ${isFailed ? 'bg-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.6)] border border-red-500' : (!gameOver ? 'hover:bg-white/60 border border-transparent' : 'border border-transparent opacity-70')}`}>
                         <UrinalSVG />
+                        
+                        {/* The Guy (Conditionally Rendered) */}
                         {isOccupied && <GuySVG />}
                       </div>
                     </div>
-                  )
-                })}
+                  )})}
+                </div>
               </div>
+
+              {/* Instructions / Footer */}
+              {!gameOver && (
+                <div className="mt-8 text-center max-w-md text-slate-600 text-sm bg-white/80 p-5 rounded-xl border border-slate-200 backdrop-blur-sm shadow-sm">
+                  <p className="mb-2"><strong>How to play:</strong> Click on an empty urinal to progress.</p>
+                  <p><strong>The Golden Rule:</strong> Never stand next to someone if an empty, non-adjacent urinal is available elsewhere!</p>
+                </div>
+              )}
             </div>
 
-            <div className="bg-slate-50 rounded-xl p-4 mb-8 border border-slate-200">
-              <p className="text-xs text-slate-500 uppercase tracking-widest font-bold mb-1">Final Score</p>
-              <p className="text-5xl font-black text-blue-600">{score}</p>
-            </div>
-            
-            <button 
-              onClick={restartGame}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-lg transition-all transform active:scale-95 shadow-lg shadow-blue-600/30"
-            >
-              Try Again
-            </button>
+            {/* Game Over Modal */}
+            {gameOver && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 animate-in fade-in duration-200 backdrop-blur-sm">
+                <div className="bg-white border border-slate-200 p-6 sm:p-8 rounded-3xl shadow-2xl max-w-2xl w-full text-center transform transition-all scale-100 animate-in zoom-in-95 relative overflow-hidden">
+                  
+                  <h2 
+                    className="text-4xl sm:text-5xl font-black mb-2 tracking-tight text-transparent bg-clip-text"
+                    style={{ backgroundImage: 'linear-gradient(to right, #ef4444, #f97316, #eab308, #22c55e, #3b82f6, #6366f1, #a855f7)' }}
+                  >
+                    Why are you Gay?
+                  </h2>
+                  <p className="text-slate-600 text-sm sm:text-base mb-6 leading-relaxed font-semibold">
+                    {failReason}
+                  </p>
+
+                  {/* The Setup Where They Died */}
+                  <div className="bg-slate-100 rounded-2xl p-4 sm:p-6 mb-6 shadow-inner border border-slate-200">
+                    <div className="flex flex-row items-end justify-center w-full gap-1 sm:gap-2 mx-auto">
+                      {urinals.map((isOccupied, index) => {
+                        const isFailed = failedIndex === index;
+                        return (
+                          <div 
+                            key={index}
+                            className="relative flex flex-col items-center flex-1 max-w-[70px]"
+                          >
+                            {/* The Urinal */}
+                            <div className={`relative p-1 rounded-xl w-full flex justify-center ${isFailed ? 'bg-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.5)] border border-red-500' : 'opacity-60'}`}>
+                              <UrinalSVG />
+                              {isOccupied && <GuySVG />}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 rounded-xl p-4 mb-8 border border-slate-200">
+                    <p className="text-xs text-slate-500 uppercase tracking-widest font-bold mb-1">Final Score</p>
+                    <p className="text-5xl font-black text-blue-600">{score}</p>
+                  </div>
+                  
+                  <button 
+                    onClick={restartGame}
+                    className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-lg transition-all transform active:scale-95 shadow-lg shadow-blue-600/30"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
+        );
+      }
+
+      // Render the App
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+    </script>
+</body>
+</html>
+
