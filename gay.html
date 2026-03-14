@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Prevents zooming and helps lock the viewport on mobile devices -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Urinal Etiquette</title>
     
     <!-- Load Tailwind CSS -->
@@ -12,20 +13,26 @@
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
-    <!-- Load Babel (Translates JSX/React into browser-readable JavaScript) -->
+    <!-- Load Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        /* Extra safeguard to stop pull-to-refresh and body scrolling */
+        body {
+            overscroll-behavior-y: contain;
+            touch-action: none;
+        }
+    </style>
 </head>
-<body>
-    <!-- This is where the React app will be injected -->
+<body class="bg-slate-100 overflow-hidden">
     <div id="root"></div>
 
-    <!-- The React Code -->
     <script type="text/babel">
       const { useState, useEffect, useCallback } = React;
 
       // --- SVGs for the Game ---
       const UrinalSVG = () => (
-        <svg viewBox="0 0 64 96" className="w-full h-auto max-h-32 drop-shadow-md">
+        <svg viewBox="0 0 64 96" className="w-full h-auto max-h-32 drop-shadow-md pointer-events-none">
           {/* Pipe */}
           <rect x="28" y="4" width="8" height="12" fill="#cbd5e1" />
           <rect x="24" y="2" width="16" height="4" fill="#94a3b8" rx="2" />
@@ -42,7 +49,7 @@
       );
 
       const GuySVG = () => (
-        <svg viewBox="0 0 64 96" className="w-full h-auto max-h-32 absolute bottom-0 left-0 drop-shadow-xl z-10" style={{ transform: 'translateY(10px)' }}>
+        <svg viewBox="0 0 64 96" className="w-full h-auto max-h-32 absolute bottom-0 left-0 drop-shadow-xl z-10 pointer-events-none" style={{ transform: 'translateY(10px)' }}>
           {/* Head */}
           <circle cx="32" cy="16" r="10" fill="#1e293b" />
           {/* Body */}
@@ -60,15 +67,27 @@
 
       function App() {
         const [score, setScore] = useState(0);
+        const [highScore, setHighScore] = useState(0);
         const [urinals, setUrinals] = useState([]);
         const [gameOver, setGameOver] = useState(false);
         const [failReason, setFailReason] = useState("");
         const [timeLeft, setTimeLeft] = useState(5000);
         const [timeLimit, setTimeLimit] = useState(5000);
         const [failedIndex, setFailedIndex] = useState(null);
+        const [roundNumber, setRoundNumber] = useState(0); // Added to fix sticky hovers
+
+        // Load high score from local storage on mount
+        useEffect(() => {
+          const savedHighScore = localStorage.getItem('urinalEtiquetteHighScore');
+          if (savedHighScore) {
+            setHighScore(parseInt(savedHighScore, 10));
+          }
+        }, []);
 
         // Game Logic Functions
         const generateRound = useCallback((currentScore = 0) => {
+          setRoundNumber(prev => prev + 1); // Increment round to force fresh DOM elements
+
           // Random number of urinals between 2 and 10
           const numUrinals = Math.floor(Math.random() * 9) + 2;
           
@@ -136,11 +155,9 @@
 
         const playGameOverSound = () => {
           try {
-            // Using the specific audio file requested
             const audio = new Audio('https://www.myinstants.com/media/sounds/gey.mp3');
             audio.play().catch((e) => {
               console.log("Audio play failed, fallback triggered.", e);
-              // Fallback tone just in case the URL gets blocked by CORS or adblockers
               const ctx = new (window.AudioContext || window.webkitAudioContext)();
               const osc = ctx.createOscillator();
               osc.type = 'sawtooth';
@@ -158,6 +175,12 @@
         const triggerGameOver = () => {
           setGameOver(true);
           playGameOverSound();
+          
+          // Check and set High Score
+          if (score > highScore) {
+            setHighScore(score);
+            localStorage.setItem('urinalEtiquetteHighScore', score.toString());
+          }
         };
 
         // Check for time out
@@ -167,7 +190,7 @@
             setFailedIndex(null);
             triggerGameOver();
           }
-        }, [timeLeft, gameOver]);
+        }, [timeLeft, gameOver, score, highScore]);
 
         const handleUrinalClick = (index) => {
           if (gameOver) return;
@@ -211,112 +234,130 @@
           generateRound(0);
         };
 
+        // --- Visual Timer Calculation ---
+        const visualProgressPercent = Math.max(0, (timeLeft - 300) / Math.max(1, timeLimit - 300)) * 100;
+
         return (
-          <div className="min-h-screen flex flex-col items-center justify-center font-sans p-4 text-slate-800 overflow-hidden relative bg-slate-100">
+          // Adjusted layout to flex-col and justify-between for dynamic height management
+          <div className="fixed inset-0 h-[100dvh] w-full flex flex-col items-center justify-between font-sans p-2 sm:p-4 pb-16 sm:pb-8 text-slate-800 overflow-hidden bg-slate-100 select-none">
             
             {/* Bathroom Wallpaper Background */}
-            <div className="absolute inset-0 z-0 opacity-60" style={{
+            <div className="absolute inset-0 z-0 opacity-60 pointer-events-none" style={{
               backgroundImage: `url('https://media.istockphoto.com/id/1270259016/vector/white-clean-wall-with-window-light.jpg?s=612x612&w=0&k=20&c=c9mLnnAOfFrfyCixiy5yqirH8VOmWDDV96POsoM_bd4=')`,
               backgroundSize: 'cover',
               backgroundPosition: 'center'
             }}></div>
 
-            <div className="relative z-10 w-full flex flex-col items-center">
-              {/* Header Area */}
-              <div className="text-center mb-6 bg-white/80 px-8 py-4 rounded-2xl border border-slate-200 shadow-sm backdrop-blur-sm">
-                <h1 className="text-3xl sm:text-5xl font-extrabold mb-2 tracking-tight text-slate-800">
+            {/* Header + Timer Top Container */}
+            <div className="relative z-10 w-full flex flex-col items-center flex-shrink-0 pt-2">
+              <div className="text-center mb-3 sm:mb-6 landscape:mb-2 bg-white/80 px-4 sm:px-8 py-2 sm:py-4 rounded-2xl border border-slate-200 shadow-sm backdrop-blur-sm">
+                <h1 className="text-2xl sm:text-5xl landscape:text-2xl font-extrabold mb-1 tracking-tight text-slate-800">
                   Urinal Etiquette
                 </h1>
-                <p className="text-lg text-slate-600 font-bold">Score: <span className="text-blue-600 text-3xl">{score}</span></p>
+                <div className="flex justify-center gap-4 sm:gap-6 items-center">
+                  <p className="text-sm sm:text-lg text-slate-600 font-bold">Score: <span className="text-blue-600 text-xl sm:text-3xl">{score}</span></p>
+                  <div className="w-px h-6 sm:h-8 bg-slate-300"></div>
+                  <p className="text-xs sm:text-sm text-slate-500 font-bold uppercase tracking-wide">Best: <span className="text-slate-700 text-lg sm:text-xl">{Math.max(score, highScore)}</span></p>
+                </div>
               </div>
 
               {/* Timer Progress Bar */}
-              <div className="w-full max-w-2xl bg-white/80 h-4 rounded-full mb-8 overflow-hidden shadow-sm border border-slate-200">
+              <div className="w-full max-w-2xl bg-white/80 h-2 sm:h-4 rounded-full mb-2 sm:mb-4 overflow-hidden shadow-sm border border-slate-200">
                 <div 
-                  className={`h-full transition-all ease-linear duration-75 ${timeLeft / timeLimit > 0.5 ? 'bg-emerald-500' : timeLeft / timeLimit > 0.25 ? 'bg-yellow-400' : 'bg-red-500'}`}
-                  style={{ width: `${Math.max(0, (timeLeft / timeLimit) * 100)}%` }}
+                  className={`h-full transition-all ease-linear duration-75 ${visualProgressPercent > 50 ? 'bg-emerald-500' : visualProgressPercent > 25 ? 'bg-yellow-400' : 'bg-red-500'}`}
+                  style={{ width: `${visualProgressPercent}%` }}
                 ></div>
               </div>
-
-              {/* Main Game Board */}
-              <div className="w-full max-w-5xl px-2 pb-8 pt-4">
-                <div className="flex flex-row items-end justify-center w-full gap-1 sm:gap-4 mx-auto">
-                  {urinals.map((isOccupied, index) => {
-                    const isFailed = gameOver && failedIndex === index;
-                    return (
-                    <div 
-                      key={index}
-                      onClick={() => handleUrinalClick(index)}
-                      className={`relative flex flex-col items-center cursor-pointer group transition-transform flex-1 max-w-[90px] ${!gameOver ? 'active:scale-95' : ''}`}
-                    >
-                      {/* The Urinal */}
-                      <div className={`relative p-1 sm:p-2 rounded-xl transition-all duration-200 w-full flex justify-center ${isFailed ? 'bg-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.6)] border border-red-500' : (!gameOver ? 'hover:bg-white/60 border border-transparent' : 'border border-transparent opacity-70')}`}>
-                        <UrinalSVG />
-                        
-                        {/* The Guy (Conditionally Rendered) */}
-                        {isOccupied && <GuySVG />}
-                      </div>
-                    </div>
-                  )})}
-                </div>
-              </div>
-
-              {/* Instructions / Footer */}
-              {!gameOver && (
-                <div className="mt-8 text-center max-w-md text-slate-600 text-sm bg-white/80 p-5 rounded-xl border border-slate-200 backdrop-blur-sm shadow-sm">
-                  <p className="mb-2"><strong>How to play:</strong> Click on an empty urinal to progress.</p>
-                  <p><strong>The Golden Rule:</strong> Never stand next to someone if an empty, non-adjacent urinal is available elsewhere!</p>
-                </div>
-              )}
             </div>
 
-            {/* Game Over Modal */}
-            {gameOver && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 animate-in fade-in duration-200 backdrop-blur-sm">
-                <div className="bg-white border border-slate-200 p-6 sm:p-8 rounded-3xl shadow-2xl max-w-2xl w-full text-center transform transition-all scale-100 animate-in zoom-in-95 relative overflow-hidden">
-                  
-                  <h2 
-                    className="text-4xl sm:text-5xl font-black mb-2 tracking-tight text-transparent bg-clip-text"
-                    style={{ backgroundImage: 'linear-gradient(to right, #ef4444, #f97316, #eab308, #22c55e, #3b82f6, #6366f1, #a855f7)' }}
+            {/* Main Game Board - Expands to fill available middle space */}
+            <div className="relative z-10 w-full max-w-5xl px-2 flex-1 flex flex-col justify-center min-h-0">
+              <div className="flex flex-row items-end justify-center w-full gap-1 sm:gap-4 mx-auto">
+                {urinals.map((isOccupied, index) => {
+                  const isFailed = gameOver && failedIndex === index;
+                  return (
+                  <div 
+                    key={`round-${roundNumber}-urinal-${index}`} // Dynamic key fixes sticky hover state
+                    onClick={() => handleUrinalClick(index)}
+                    className={`relative flex flex-col items-center cursor-pointer group transition-transform flex-1 max-w-[90px] ${!gameOver ? 'active:scale-95' : ''}`}
                   >
-                    Why are you Gay?
-                  </h2>
-                  <p className="text-slate-600 text-sm sm:text-base mb-6 leading-relaxed font-semibold">
-                    {failReason}
-                  </p>
+                    {/* The Urinal */}
+                    <div className={`relative p-1 sm:p-2 rounded-xl transition-all duration-200 w-full flex justify-center ${isFailed ? 'bg-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.6)] border border-red-500' : (!gameOver ? 'hover:bg-white/60 border border-transparent' : 'border border-transparent opacity-70')}`}>
+                      <UrinalSVG />
+                      {/* The Guy */}
+                      {isOccupied && <GuySVG />}
+                    </div>
+                  </div>
+                )})}
+              </div>
+            </div>
 
-                  {/* The Setup Where They Died */}
-                  <div className="bg-slate-100 rounded-2xl p-4 sm:p-6 mb-6 shadow-inner border border-slate-200">
-                    <div className="flex flex-row items-end justify-center w-full gap-1 sm:gap-2 mx-auto">
-                      {urinals.map((isOccupied, index) => {
-                        const isFailed = failedIndex === index;
-                        return (
-                          <div 
-                            key={index}
-                            className="relative flex flex-col items-center flex-1 max-w-[70px]"
-                          >
-                            {/* The Urinal */}
-                            <div className={`relative p-1 rounded-xl w-full flex justify-center ${isFailed ? 'bg-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.5)] border border-red-500' : 'opacity-60'}`}>
-                              <UrinalSVG />
-                              {isOccupied && <GuySVG />}
-                            </div>
-                          </div>
-                        )
-                      })}
+            {/* Instructions / Footer - Hidden in Landscape */}
+            {!gameOver && (
+              <div className="relative z-10 text-center max-w-md text-slate-600 text-[11px] sm:text-sm bg-white/80 p-3 sm:p-5 rounded-xl border border-slate-200 backdrop-blur-sm shadow-sm pointer-events-none flex-shrink-0 mb-4 landscape:hidden">
+                <p className="mb-1 sm:mb-2"><strong>How to play:</strong> Tap an empty urinal to progress.</p>
+                <p><strong>The Golden Rule:</strong> Never stand next to someone if an empty, non-adjacent urinal is available elsewhere!</p>
+              </div>
+            )}
+
+            {/* Game Over Modal - Switches to Flex-Row (Side-by-Side) in Landscape */}
+            {gameOver && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-3 sm:p-4 animate-in fade-in duration-200 backdrop-blur-sm">
+                <div className="bg-white border border-slate-200 p-4 sm:p-8 landscape:p-6 rounded-3xl shadow-2xl w-full max-w-md landscape:max-w-4xl text-center landscape:text-left transform transition-all scale-100 animate-in zoom-in-95 relative flex flex-col landscape:flex-row landscape:items-center landscape:gap-8 max-h-[95vh]">
+                  
+                  {/* Left Column (Landscape) / Top Area (Portrait) */}
+                  <div className="flex flex-col flex-1 w-full landscape:justify-center flex-shrink-0">
+                    <h2 
+                      className="text-4xl sm:text-5xl landscape:text-4xl font-black mb-2 tracking-tight text-transparent bg-clip-text"
+                      style={{ backgroundImage: 'linear-gradient(to right, #ef4444, #f97316, #eab308, #22c55e, #3b82f6, #6366f1, #a855f7)' }}
+                    >
+                      Why are you Gay?
+                    </h2>
+                    <p className="text-slate-600 text-sm sm:text-base mb-4 sm:mb-6 leading-relaxed font-semibold">
+                      {failReason}
+                    </p>
+
+                    <div className="flex gap-2 sm:gap-4 mb-4 sm:mb-6">
+                      <div className="bg-slate-50 rounded-xl p-3 sm:p-4 border border-slate-200 flex-1 text-center">
+                        <p className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-widest font-bold mb-1">Score</p>
+                        <p className="text-3xl sm:text-4xl font-black text-blue-600">{score}</p>
+                      </div>
+                      <div className="bg-slate-50 rounded-xl p-3 sm:p-4 border border-slate-200 flex-1 text-center">
+                        <p className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-widest font-bold mb-1">Best</p>
+                        <p className="text-3xl sm:text-4xl font-black text-slate-800">{Math.max(score, highScore)}</p>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="bg-slate-50 rounded-xl p-4 mb-8 border border-slate-200">
-                    <p className="text-xs text-slate-500 uppercase tracking-widest font-bold mb-1">Final Score</p>
-                    <p className="text-5xl font-black text-blue-600">{score}</p>
+                  {/* Right Column (Landscape) / Bottom Area (Portrait) */}
+                  <div className="flex flex-col flex-1 w-full landscape:justify-center min-h-0">
+                    {/* The Setup Where They Died */}
+                    <div className="bg-slate-100 rounded-2xl p-2 sm:p-4 mb-4 shadow-inner border border-slate-200 overflow-y-auto min-h-[70px] sm:min-h-[100px] flex items-end">
+                      <div className="flex flex-row items-end justify-center w-full gap-1 mx-auto">
+                        {urinals.map((isOccupied, index) => {
+                          const isFailed = failedIndex === index;
+                          return (
+                            <div 
+                              key={`gameover-${roundNumber}-${index}`}
+                              className="relative flex flex-col items-center flex-1 max-w-[60px]"
+                            >
+                              <div className={`relative p-1 rounded-xl w-full flex justify-center ${isFailed ? 'bg-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.5)] border border-red-500' : 'opacity-60'}`}>
+                                <UrinalSVG />
+                                {isOccupied && <GuySVG />}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    
+                    <button 
+                      onClick={restartGame}
+                      className="w-full py-3 sm:py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-lg sm:text-xl transition-all transform active:scale-95 shadow-lg shadow-blue-600/30 flex-shrink-0"
+                    >
+                      Try Again
+                    </button>
                   </div>
-                  
-                  <button 
-                    onClick={restartGame}
-                    className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-lg transition-all transform active:scale-95 shadow-lg shadow-blue-600/30"
-                  >
-                    Try Again
-                  </button>
                 </div>
               </div>
             )}
@@ -324,10 +365,10 @@
         );
       }
 
-      // Render the App
       const root = ReactDOM.createRoot(document.getElementById('root'));
       root.render(<App />);
     </script>
 </body>
 </html>
+
 
