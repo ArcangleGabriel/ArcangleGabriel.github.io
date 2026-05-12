@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Improv Engine</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+<style>
+:root {
+  --bg:      #080812;
+  --s1:      #0d0d1e;
+  --s2:      #111128;
+  --border:  #1e1e40;
+  --accent:  #7c5cbf;
+  --cyan:    #00e5ff;
+  --green:   #39ff9b;
+  --amber:   #ffb347;
+  --red:     #ff4d6d;
+  --text:    #c8c8e8;
+  --dim:     #555580;
+  --font:    'Segoe UI', system-ui, monospace;
+}
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+html, body { height:100%; overflow:hidden; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ── */
+#hdr {
+  display:flex; align-items:center; gap:14px;
+  padding:9px 16px;
+  background: linear-gradient(90deg,#0d0020 0%,#0a0a20 100%);
+  border-bottom: 1px solid var(--border);
+  flex-shrink:0;
+}
+#hdr h1 {
+  font-size:1.1rem; font-weight:700; letter-spacing:.15em;
+  background: linear-gradient(90deg,var(--cyan),var(--accent),var(--green));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  white-space:nowrap;
+}
+.spacer { flex:1; }
+#status-bar {
+  display:flex; gap:16px; font-size:.7rem; color:var(--dim);
+  font-variant-numeric:tabular-nums;
+}
+#status-bar em { color:var(--cyan); font-style:normal; }
+
+/* ── Layout ── */
+#layout {
+  display:grid;
+  grid-template-columns: 270px 1fr 220px;
+  grid-template-rows: 1fr;
+  flex:1; overflow:hidden;
+  min-height:0;
+}
+.col { display:flex; flex-direction:column; overflow:hidden; min-height:0; }
+#col-left  { border-right:1px solid var(--border); overflow-y:auto; }
+#col-mid   { }
+#col-right { border-left:1px solid var(--border); overflow-y:auto; }
+
+/* ── Panels ── */
+.panel { padding:10px 12px; border-bottom:1px solid var(--border); }
+.panel-head {
+  font-size:.65rem; font-weight:700; letter-spacing:.15em;
+  text-transform:uppercase; color:var(--dim);
+  margin-bottom:8px; display:flex; align-items:center; gap:6px;
+}
+.panel-head .dot { width:5px;height:5px;border-radius:50%;background:var(--accent); }
+
+/* ── Sliders ── */
+.sr { margin-bottom:7px; }
+.sr:last-child { margin-bottom:0; }
+.sr-lbl {
+  display:flex; justify-content:space-between;
+  font-size:.72rem; margin-bottom:2px;
+}
+.sr-lbl .v { color:var(--cyan); min-width:30px; text-align:right; font-variant-numeric:tabular-nums; }
+input[type=range] {
+  -webkit-appearance:none; width:100%; height:3px;
+  background:var(--border); border-radius:2px; outline:none; cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none; width:13px; height:13px; border-radius:50%;
+  background:var(--accent); border:2px solid #ffffff22; cursor:pointer;
+}
+input[type=range]:focus::-webkit-slider-thumb { background:var(--cyan); }
+
+/* Bipolar */
+.br { margin-bottom:6px; }
+.br:last-child { margin-bottom:0; }
+.br-lbls { display:flex; justify-content:space-between; font-size:.67rem; margin-bottom:2px; }
+.br-lbls .l { color:var(--amber); }
+.br-lbls .r { color:#b39ddb; }
+
+/* Select */
+.selrow { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:.72rem; }
+.selrow:last-child { margin-bottom:0; }
+.selrow label { white-space:nowrap; color:var(--dim); min-width:55px; }
+select {
+  flex:1; background:var(--s2); color:var(--text);
+  border:1px solid var(--border); border-radius:5px;
+  padding:3px 6px; font-size:.72rem; cursor:pointer; outline:none;
+}
+select:focus { border-color:var(--accent); }
+
+/* ── Buttons ── */
+btn, button {
+  cursor:pointer; border-radius:6px; font-size:.75rem; font-weight:600;
+  border:1px solid; padding:6px 14px; transition:all .12s; font-family:var(--font);
+}
+#btn-play  { background:var(--accent); color:#fff; border-color:var(--accent); }
+#btn-play:hover { background:#9a7fd0; }
+#btn-play.on { background:var(--red); border-color:var(--red); }
+#btn-stop  { background:transparent; color:var(--dim); border-color:var(--border); }
+#btn-stop:hover { color:var(--text); border-color:var(--text); }
+#btn-midi  { background:transparent; color:var(--cyan); border-color:var(--cyan); }
+#btn-midi:hover { background:#00e5ff18; }
+.btn-sm {
+  display:inline-flex; align-items:center; justify-content:center;
+  cursor:pointer; border-radius:4px; font-size:.67rem; font-weight:600;
+  border:1px solid var(--border); padding:3px 8px;
+  background:transparent; color:var(--dim); transition:all .12s; font-family:var(--font);
+}
+.btn-sm:hover { color:var(--text); border-color:var(--text); }
+.btn-sm.active { color:var(--cyan); border-color:var(--cyan); }
+
+/* ── Piano Roll ── */
+#roll-wrap { flex:1; position:relative; min-height:0; overflow:hidden; }
+#roll-canvas { display:block; width:100%; height:100%; }
+
+/* ── Motif Editor ── */
+#motif-section {
+  border-top:1px solid var(--border);
+  flex-shrink:0;
+  overflow:hidden;
+}
+#motif-toggle-bar {
+  display:flex; align-items:center; gap:8px;
+  padding:7px 12px; cursor:pointer; user-select:none;
+  font-size:.68rem; letter-spacing:.12em; text-transform:uppercase; color:var(--dim);
+  border-bottom:1px solid transparent; transition:.1s;
+}
+#motif-toggle-bar:hover { color:var(--text); }
+#motif-toggle-bar .arrow { transition:transform .2s; }
+#motif-toggle-bar.open { border-bottom-color:var(--border); }
+#motif-toggle-bar.open .arrow { transform:rotate(180deg); }
+#motif-body { display:none; padding:10px 12px; max-height:260px; overflow-y:auto; }
+#motif-body.open { display:block; }
+
+.motif-row {
+  display:grid; grid-template-columns:1fr 80px auto;
+  gap:6px; align-items:center; margin-bottom:7px;
+}
+.motif-row input[type=text] {
+  background:var(--s2); border:1px solid var(--border); border-radius:5px;
+  padding:4px 7px; color:var(--text); font-size:.72rem; font-family:monospace; outline:none;
+}
+.motif-row input[type=text]:focus { border-color:var(--accent); }
+.motif-row select { font-size:.7rem; }
+
+.motif-hint {
+  font-size:.64rem; color:var(--dim); margin-bottom:8px; line-height:1.5;
+}
+
+/* Motif controls */
+#motif-ctrl { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; align-items:center; }
+
+/* ── Voice Cards ── */
+.voice-card {
+  margin-bottom:8px; padding:8px 10px;
+  background:var(--s2); border:1px solid var(--border); border-radius:7px;
+}
+.voice-card:last-child { margin-bottom:0; }
+.vc-head {
+  display:flex; align-items:center; gap:6px; margin-bottom:6px; font-size:.72rem;
+}
+.vc-dot { width:8px;height:8px;border-radius:50%;flex-shrink:0; }
+.vc-name { font-weight:600; flex:1; }
+.vc-row { display:flex; align-items:center; gap:6px; margin-bottom:5px; font-size:.7rem; color:var(--dim); }
+.vc-row:last-child { margin-bottom:0; }
+.vc-row label { min-width:44px; }
+.vc-row select, .vc-row input[type=range] { flex:1; }
+
+/* ── Game API ── */
+#api-pre {
+  font-family:monospace; font-size:.65rem; color:var(--green);
+  background:var(--bg); padding:8px; border-radius:5px;
+  overflow-x:auto; white-space:pre; max-height:140px; overflow-y:auto;
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<div id="hdr">
+  <h1>IMPROV ENGINE</h1>
+  <div id="status-bar">
+    <div>BAR <em id="st-bar">1</em></div>
+    <div>BEAT <em id="st-beat">1</em></div>
+    <div>CHORD <em id="st-chord">--</em></div>
+    <div>MOTIF <em id="st-motif">--</em></div>
+    <div>NOTES <em id="st-notes">0</em></div>
+  </div>
+  <div class="spacer"></div>
+  <div style="display:flex;gap:8px">
+    <button id="btn-play">▶ Play</button>
+    <button id="btn-stop">■ Stop</button>
+    <button id="btn-midi">↓ MIDI</button>
+  </div>
+</div>
+
+<!-- ═══ LAYOUT ═══ -->
+<div id="layout">
+
+  <!-- ─── LEFT: Global + Emotional ─── -->
+  <div class="col" id="col-left">
+
+    <div class="panel">
+      <div class="panel-head"><div class="dot"></div>GLOBAL</div>
+
+      <div class="sr"><div class="sr-lbl">Tempo (BPM)<span class="v" id="v-tempo">120</span></div>
+        <input type="range" id="sl-tempo" min="40" max="240" value="120"></div>
+      <div class="sr"><div class="sr-lbl">Melodic Lines<span class="v" id="v-voices">3</span></div>
+        <input type="range" id="sl-voices" min="1" max="6" value="3" step="1"></div>
+      <div class="sr"><div class="sr-lbl">Range Low (MIDI)<span class="v" id="v-rlo">48</span></div>
+        <input type="range" id="sl-rlo" min="24" max="84" value="48" step="1"></div>
+      <div class="sr"><div class="sr-lbl">Range High (MIDI)<span class="v" id="v-rhi">84</span></div>
+        <input type="range" id="sl-rhi" min="36" max="108" value="84" step="1"></div>
+      <div class="sr"><div class="sr-lbl">Temperature<span class="v" id="v-temp">0.55</span></div>
+        <input type="range" id="sl-temp" min="0.05" max="2.5" value="0.55" step="0.05"></div>
+      <div class="sr"><div class="sr-lbl">Memory Depth<span class="v" id="v-mem">4</span></div>
+        <input type="range" id="sl-mem" min="1" max="16" value="4" step="1"></div>
+      <div class="sr"><div class="sr-lbl">Chord Change (beats)<span class="v" id="v-chord">8</span></div>
+        <input type="range" id="sl-chord" min="2" max="32" value="8" step="2"></div>
+
+      <div class="selrow"><label>Key</label>
+        <select id="sel-key">
+          <option value="0">C</option><option value="1">C# / Db</option>
+          <option value="2">D</option><option value="3">D# / Eb</option>
+          <option value="4">E</option><option value="5">F</option>
+          <option value="6">F# / Gb</option><option value="7">G</option>
+          <option value="8">G# / Ab</option><option value="9">A</option>
+          <option value="10">Bb</option><option value="11">B</option>
+        </select>
+      </div>
+      <div class="selrow"><label>Scale</label>
+        <select id="sel-scale">
+          <option value="major">Major</option>
+          <option value="minor">Nat. Minor</option>
+          <option value="dorian">Dorian</option>
+          <option value="phrygian">Phrygian</option>
+          <option value="lydian">Lydian</option>
+          <option value="mixolydian">Mixolydian</option>
+          <option value="harmonic_minor">Harmonic Minor</option>
+          <option value="pent_major">Pentatonic Major</option>
+          <option value="pent_minor">Pentatonic Minor</option>
+          <option value="blues">Blues</option>
+          <option value="whole_tone">Whole Tone</option>
+        </select>
+      </div>
+      <div class="selrow"><label>Seed Chord</label>
+        <select id="sel-seed">
+          <option value="maj">Major</option>
+          <option value="min">Minor</option>
+          <option value="dom7">Dom 7</option>
+          <option value="maj7">Maj 7</option>
+          <option value="min7">Min 7</option>
+          <option value="dim">Dim</option>
+          <option value="sus4">Sus4</option>
+          <option value="power">Power</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="panel" style="flex:1">
+      <div class="panel-head"><div class="dot" style="background:var(--amber)"></div>EMOTIONAL</div>
+      <div class="br"><div class="br-lbls"><span class="l">Happy</span><span class="r">Melancholic</span></div>
+        <input type="range" id="sl-happy" min="0" max="1" value="0.3" step="0.01"></div>
+      <div class="br"><div class="br-lbls"><span class="l">Energetic</span><span class="r">Restful</span></div>
+        <input type="range" id="sl-energy" min="0" max="1" value="0.45" step="0.01"></div>
+      <div class="br"><div class="br-lbls"><span class="l">Bright</span><span class="r">Dark</span></div>
+        <input type="range" id="sl-bright" min="0" max="1" value="0.35" step="0.01"></div>
+      <div class="br"><div class="br-lbls"><span class="l">Tense</span><span class="r">Resolved</span></div>
+        <input type="range" id="sl-tense" min="0" max="1" value="0.35" step="0.01"></div>
+      <div class="br"><div class="br-lbls"><span class="l">Rhythmic</span><span class="r">Flowing</span></div>
+        <input type="range" id="sl-rhythm" min="0" max="1" value="0.4" step="0.01"></div>
+      <div class="br"><div class="br-lbls"><span class="l">Ascending</span><span class="r">Descending</span></div>
+        <input type="range" id="sl-ascend" min="0" max="1" value="0.5" step="0.01"></div>
+      <div class="br"><div class="br-lbls"><span class="l">Loud</span><span class="r">Quiet</span></div>
+        <input type="range" id="sl-loud" min="0" max="1" value="0.45" step="0.01"></div>
+      <div class="br"><div class="br-lbls"><span class="l">Diatonic</span><span class="r">Chromatic</span></div>
+        <input type="range" id="sl-chroma" min="0" max="1" value="0.1" step="0.01"></div>
+      <div class="br"><div class="br-lbls"><span class="l">Staccato</span><span class="r">Legato</span></div>
+        <input type="range" id="sl-legato" min="0" max="1" value="0.6" step="0.01"></div>
+      <div class="br"><div class="br-lbls"><span class="l">Complex</span><span class="r">Simple</span></div>
+        <input type="range" id="sl-complex" min="0" max="1" value="0.45" step="0.01"></div>
+    </div>
+
+  </div><!-- /col-left -->
+
+  <!-- ─── MIDDLE: Roll + Motif ─── -->
+  <div class="col" id="col-mid">
+    <div id="roll-wrap">
+      <canvas id="roll-canvas"></canvas>
+    </div>
+
+    <div id="motif-section">
+      <div id="motif-toggle-bar">
+        <span>Motif / Theme Editor</span>
+        <div class="spacer"></div>
+        <span class="arrow">▾</span>
+      </div>
+      <div id="motif-body">
+        <div class="motif-hint">
+          Enter notes as pitch-classes (0–11) or names (C D# F G) separated by spaces.
+          Durations row = beats per note. The engine quotes motifs fugue-style across voices.<br>
+          Transformations: original · transposed · inverted · retrograde · augmented (×2) · diminuted (÷2)
+        </div>
+        <!-- 3 motif slots -->
+        <div id="motif-slots"></div>
+        <div id="motif-ctrl">
+          <div style="font-size:.67rem;color:var(--dim)">Motif strength</div>
+          <div style="flex:1;max-width:120px">
+            <input type="range" id="sl-motif-strength" min="0" max="1" value="0.7" step="0.01" style="margin-top:4px">
+          </div>
+          <div style="font-size:.67rem;color:var(--dim)">Density</div>
+          <div style="flex:1;max-width:120px">
+            <input type="range" id="sl-motif-density" min="0" max="1" value="0.3" step="0.01" style="margin-top:4px">
+          </div>
+          <div style="font-size:.67rem;color:var(--dim)">Imitation delay (beats)</div>
+          <div style="flex:1;max-width:80px">
+            <input type="range" id="sl-imitation" min="0" max="16" value="4" step="1" style="margin-top:4px">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /col-mid -->
+
+  <!-- ─── RIGHT: Voices + Game API ─── -->
+  <div class="col" id="col-right">
+
+    <div class="panel" style="flex:1;overflow-y:auto;">
+      <div class="panel-head"><div class="dot" style="background:var(--green)"></div>VOICES</div>
+      <div id="voice-cards"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><div class="dot" style="background:var(--cyan)"></div>GAME API</div>
+      <div style="font-size:.64rem;color:var(--dim);margin-bottom:6px">
+        Drive all sliders via URL params or JS:<br>
+        <code style="color:var(--green)">ImprovEngine.setParam('energy', 0.8)</code>
+      </div>
+      <pre id="api-pre">{}</pre>
+    </div>
+
+  </div><!-- /col-right -->
+
+</div><!-- /layout -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// THEORY
+// ═══════════════════════════════════════════════════════════════════════
+const SCALES = {
+  major:          [0,2,4,5,7,9,11],
+  minor:          [0,2,3,5,7,8,10],
+  dorian:         [0,2,3,5,7,9,10],
+  phrygian:       [0,1,3,5,7,8,10],
+  lydian:         [0,2,4,6,7,9,11],
+  mixolydian:     [0,2,4,5,7,9,10],
+  harmonic_minor: [0,2,3,5,7,8,11],
+  pent_major:     [0,2,4,7,9],
+  pent_minor:     [0,3,5,7,10],
+  blues:          [0,3,5,6,7,10],
+  whole_tone:     [0,2,4,6,8,10],
+};
+const CHORD_SHAPES = {
+  maj:   [0,4,7],
+  min:   [0,3,7],
+  dom7:  [0,4,7,10],
+  maj7:  [0,4,7,11],
+  min7:  [0,3,7,10],
+  dim:   [0,3,6],
+  sus4:  [0,5,7],
+  power: [0,7],
+};
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','Bb','B'];
+const NOTE_MAP = {C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'Bb':10,'A#':10,B:11};
+const PROGRESSIONS = [
+  [0,5,3,4],[0,3,4,0],[0,5,3,0],[0,2,5,0],
+  [0,4,5,3],[5,3,0,4],[0,3,0,4],[0,5,4,3],
+  [0,0,5,4],[0,6,3,4],[2,5,0,0],
+];
+const VOICE_COLORS = ['#7c5cbf','#00e5ff','#39ff9b','#ffb347','#ff6b6d','#f8d84b','#e040fb'];
+const SYNTH_PRESETS = {
+  piano:   ()=>new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:.01,decay:.4,sustain:.3,release:1.2}}).toDestination(),
+  lead:    ()=>new Tone.Synth({oscillator:{type:'sawtooth'},envelope:{attack:.02,decay:.1,sustain:.8,release:.4}}).toDestination(),
+  pad:     ()=>new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:.3,decay:.2,sustain:.9,release:1.5}}).toDestination(),
+  bell:    ()=>new Tone.FMSynth({harmonicity:5.1,modulationIndex:32,envelope:{attack:.01,decay:.4,sustain:.1,release:1.4},modulationEnvelope:{attack:.01,decay:.2,sustain:0,release:.5}}).toDestination(),
+  pluck:   ()=>new Tone.PluckSynth({attackNoise:1.5,dampening:3500,resonance:.96}).toDestination(),
+  bass:    ()=>new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:.04,decay:.3,sustain:.6,release:.8}}).toDestination(),
+  strings: ()=>new Tone.Synth({oscillator:{type:'sawtooth'},envelope:{attack:.4,decay:.1,sustain:.9,release:1.8}}).toDestination(),
+  fm:      ()=>new Tone.FMSynth({harmonicity:3,modulationIndex:8,envelope:{attack:.04,decay:.2,sustain:.7,release:.8}}).toDestination(),
+  am:      ()=>new Tone.AMSynth({harmonicity:2,envelope:{attack:.05,decay:.2,sustain:.7,release:.9}}).toDestination(),
+  flute:   ()=>new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:.1,decay:.05,sustain:.95,release:.8}}).toDestination(),
+};
+
+function midiToHz(m){return 440*Math.pow(2,(m-69)/12);}
+function midiName(m){return NOTE_NAMES[m%12]+Math.floor(m/12-1);}
+function inScale(p,key,scale){return SCALES[scale]?.includes(((p-key)%12+12)%12)??true;}
+function scaleRange(key,scale,lo,hi){const r=[];for(let p=lo;p<=hi;p++)if(inScale(p,key,scale))r.push(p);return r;}
+
+// ═══════════════════════════════════════════════════════════════════════
+// PARAMS
+// ═══════════════════════════════════════════════════════════════════════
+function getP(){
+  return {
+    tempo:   +q('sl-tempo'),
+    voices:  +q('sl-voices'),
+    rlo:     +q('sl-rlo'),
+    rhi:     +q('sl-rhi'),
+    temp:    +q('sl-temp'),
+    mem:     +q('sl-mem'),
+    chordPeriod: +q('sl-chord'),
+    key:     +q('sel-key'),
+    scale:   q('sel-scale'),
+    seed:    q('sel-seed'),
+    happy:   +q('sl-happy'),
+    energy:  +q('sl-energy'),
+    bright:  +q('sl-bright'),
+    tense:   +q('sl-tense'),
+    rhythm:  +q('sl-rhythm'),
+    ascend:  +q('sl-ascend'),
+    loud:    +q('sl-loud'),
+    chroma:  +q('sl-chroma'),
+    legato:  +q('sl-legato'),
+    complex: +q('sl-complex'),
+    motifStrength: +q('sl-motif-strength'),
+    motifDensity:  +q('sl-motif-density'),
+    imitDelay:     +q('sl-imitation'),
+  };
+}
+function q(id){
+  const el=document.getElementById(id);
+  return el?el.value:'';
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MOTIF PARSING & TRANSFORMS
+// ═══════════════════════════════════════════════════════════════════════
+function parseNotes(str){
+  return str.trim().split(/\s+/).map(s=>{
+    if(NOTE_MAP[s]!==undefined)return NOTE_MAP[s];
+    const n=parseInt(s);
+    return isNaN(n)?null:((n%12)+12)%12;
+  }).filter(n=>n!==null);
+}
+function parseDurations(str){
+  if(!str.trim())return null;
+  return str.trim().split(/\s+/).map(s=>{const n=parseFloat(s);return isNaN(n)?1:Math.max(.125,n);});
+}
+function getMotifs(){
+  return [0,1,2].map(i=>{
+    const noteEl=document.getElementById('motif-notes-'+i);
+    const durEl=document.getElementById('motif-durs-'+i);
+    const enEl=document.getElementById('motif-en-'+i);
+    if(!noteEl||!enEl||!enEl.checked)return null;
+    const notes=parseNotes(noteEl.value);
+    if(!notes.length)return null;
+    const rawDurs=parseDurations(durEl?durEl.value:'');
+    const durs=notes.map((_,j)=>rawDurs?rawDurs[j%rawDurs.length]:1);
+    return {notes,durs};
+  }).filter(Boolean);
+}
+
+function transformMotif(m, type, transpose=0){
+  const n=m.notes, d=m.durs;
+  switch(type){
+    case 'orig': return {notes:n.map(x=>((x+transpose)%12+12)%12),durs:[...d]};
+    case 'inv': {
+      const first=n[0];
+      return {notes:n.map(x=>((first-(x-first)+12*16)%12)),durs:[...d]};
+    }
+    case 'retro': return {notes:[...n].reverse().map(x=>((x+transpose)%12+12)%12),durs:[...d].reverse()};
+    case 'aug':  return {notes:n.map(x=>((x+transpose)%12+12)%12),durs:d.map(x=>x*2)};
+    case 'dim':  return {notes:n.map(x=>((x+transpose)%12+12)%12),durs:d.map(x=>Math.max(.125,x*.5))};
+    default: return {notes:n.map(x=>((x+transpose)%12+12)%12),durs:[...d]};
+  }
+}
+const TRANSFORMS=['orig','inv','retro','aug','dim'];
+
+// ═══════════════════════════════════════════════════════════════════════
+// HARMONIC CONTEXT
+// ═══════════════════════════════════════════════════════════════════════
+class Harmony {
+  constructor(p){
+    this.p=p;
+    this.prog=PROGRESSIONS[Math.floor(Math.random()*PROGRESSIONS.length)];
+    this.progIdx=0;
+    this.beatInChord=0;
+    this.totalBeats=0;
+    this.chord=this._buildChord();
+    this.bar=0; this.beat=0;
+  }
+  _buildChord(){
+    const p=this.p;
+    const deg=this.prog[this.progIdx%this.prog.length];
+    const sc=SCALES[p.scale]||SCALES.major;
+    const rootPC=(p.key+sc[deg%sc.length])%12;
+    let shp;
+    const tense=1-p.tense, happy=1-p.happy;
+    if(deg===0){ shp=happy>.5?'maj':'min'; if(tense>.6&&Math.random()<tense)shp=happy>.5?'maj7':'min7'; }
+    else if(deg===4){ shp=tense>.4&&Math.random()<tense?'dom7':'maj'; }
+    else { shp=Math.random()<happy?'min':'maj'; if(tense>.7&&Math.random()<.3)shp='dim'; }
+    const tones=CHORD_SHAPES[shp].map(i=>(rootPC+i)%12);
+    return {rootPC,shp,tones,name:NOTE_NAMES[rootPC]+' '+shp};
+  }
+  advance(beats){
+    this.totalBeats+=beats;
+    this.beat=Math.floor(this.totalBeats%4);
+    this.bar=Math.floor(this.totalBeats/4);
+    this.beatInChord+=beats;
+    const period=this.p.chordPeriod||8;
+    if(this.beatInChord>=period){
+      this.beatInChord-=period;
+      this.progIdx++;
+      this.chord=this._buildChord();
+      if(this.progIdx%this.prog.length===0)
+        this.prog=PROGRESSIONS[Math.floor(Math.random()*PROGRESSIONS.length)];
+    }
+  }
+  isChord(p){return this.chord.tones.includes(p%12);}
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// VOICE
+// ═══════════════════════════════════════════════════════════════════════
+class Voice {
+  constructor(id,p,harmony){
+    this.id=id;
+    this.history=[];
+    // Stagger across range
+    const mid=(p.rlo+p.rhi)>>1;
+    const spread=Math.max(1,Math.floor((p.rhi-p.rlo)/Math.max(p.voices,1)));
+    let sp=p.rlo+spread*id+Math.floor(spread/2);
+    const scNotes=scaleRange(p.key,p.scale,p.rlo,p.rhi);
+    if(scNotes.length) sp=scNotes.reduce((a,b)=>Math.abs(b-sp)<Math.abs(a-sp)?b:a,sp);
+    const seedTones=CHORD_SHAPES[p.seed]?.map(i=>(p.key+i)%12)||[0,4,7];
+    const seedPs=[];for(let x=p.rlo;x<=p.rhi;x++)if(seedTones.includes(x%12))seedPs.push(x);
+    if(seedPs.length) sp=seedPs.reduce((a,b)=>Math.abs(b-sp)<Math.abs(a-sp)?b:a,sp);
+    this.pitch=sp;
+    this.history.push({pitch:sp,vel:80,dur:1});
+    // Motif state
+    this.motifQueue=[];  // [{pitch (MIDI), dur}] to inject
+    this.motifName='';
+  }
+
+  injectMotif(motifDef, p){
+    if(!motifDef)return;
+    const t=TRANSFORMS[Math.floor(Math.random()*TRANSFORMS.length)];
+    const transpose=Math.floor(Math.random()*12);
+    const m=transformMotif(motifDef,t,transpose);
+    // Convert pitch-class to nearest MIDI in range
+    this.motifQueue=m.notes.map((pc,i)=>{
+      const dur=m.durs[i];
+      const candidates=[];
+      for(let x=p.rlo;x<=p.rhi;x++)if((x%12)===pc)candidates.push(x);
+      if(!candidates.length)return null;
+      const tgt=this.pitch;
+      const pitch=candidates.reduce((a,b)=>Math.abs(b-tgt)<Math.abs(a-tgt)?b:a);
+      return {pitch,dur};
+    }).filter(Boolean);
+    this.motifName=t+'@'+(transpose>0?'+':'')+transpose;
+  }
+
+  next(p, harmony, availableMotifs){
+    // Maybe start a motif
+    if(!this.motifQueue.length && availableMotifs.length && Math.random()<p.motifDensity*.04){
+      const m=availableMotifs[Math.floor(Math.random()*availableMotifs.length)];
+      this.injectMotif(m,p);
+    }
+    // Pull from motif queue with strength
+    if(this.motifQueue.length && Math.random()<p.motifStrength){
+      const mn=this.motifQueue.shift();
+      this.pitch=mn.pitch;
+      this.history.push({pitch:mn.pitch,vel:90,dur:mn.dur});
+      if(this.history.length>32)this.history.shift();
+      return {pitch:mn.pitch,vel:90,dur:mn.dur,motif:true,motifName:this.motifName};
+    }
+    // Algorithmic selection
+    const lo=p.rlo, hi=p.rhi;
+    const cands=[];
+    for(let x=lo;x<=hi;x++)cands.push(x);
+    if(!cands.length)return{pitch:this.pitch,vel:80,dur:1};
+
+    const logits=cands.map(x=>{
+      let s=0;
+      const semi=Math.abs(x-this.pitch);
+      // Interval preference
+      if(semi===0) s+=0.2;
+      else if(semi<=2) s+=2.8;
+      else if(semi<=4) s+=1.8;
+      else if(semi<=7) s+=0.9;
+      else if(semi<=12)s+=0.2;
+      else s-=(semi-12)*.18;
+      // Direction
+      const dir=Math.sign(x-this.pitch);
+      const asc=1-p.ascend*2;
+      if(dir>0)s+=asc*.9;
+      if(dir<0)s-=asc*.9;
+      // Scale/chord
+      const inSc=inScale(x,p.key,p.scale);
+      const isC=harmony.isChord(x);
+      if(isC) s+=1.9-p.tense*1.3;
+      else if(inSc) s+=.7;
+      else s+=p.chroma*2-1.8;
+      // Tension
+      const iv=((x-harmony.chord.rootPC)%12+12)%12;
+      const diss=[1,2,6,10,11].includes(iv);
+      if(diss) s+=(1-p.tense)*-1.4+p.tense*.5;
+      // Happy/sad
+      const majIv=[0,4,7,9].includes(iv), minIv=[0,3,7,8].includes(iv);
+      const happy=1-p.happy;
+      if(majIv)s+=(happy-.5)*1.6;
+      if(minIv)s+=(.5-happy)*1.6;
+      // Brightness
+      const norm=(x-lo)/Math.max(hi-lo,1);
+      s+=(1-p.bright-.5)*norm*1.3;
+      // Memory
+      const rec=this.history.slice(-Math.floor(p.mem));
+      s-=rec.filter(n=>n.pitch===x).length*.9;
+      // Simplicity
+      if(!inSc)s-=p.complex*1.6;
+      return s;
+    });
+
+    const probs=softmax(logits,p.temp);
+    const idx=wSample(probs);
+    const pitch=cands[idx];
+
+    // Duration
+    const durs=[.25,.5,.75,1,1.5,2,3,4];
+    const dw=durs.map(d=>{
+      let w=0;
+      const en=1-p.energy;
+      if(d<=.5)w+=en*2.2;
+      else if(d===1)w+=1.6;
+      else if(d>=2)w+=(1-en)*2;
+      else w+=1;
+      const rh=1-p.rhythm;
+      if(rh>.5&&(d===1||d===.5||d===2))w*=(rh+.5);
+      else if(rh>.5)w*=(1-rh+.3);
+      return Math.max(w,.01);
+    });
+    const dur=durs[wSample(softmax(dw.map(Math.log),p.temp*.7))];
+
+    // Velocity
+    const baseVel=40+Math.round((1-p.loud)*70);
+    const enVar=(1-p.energy)*28;
+    const phVar=Math.sin(harmony.totalBeats*.14)*14;
+    const rndVar=(Math.random()-.5)*18;
+    const vel=Math.min(127,Math.max(10,Math.round(baseVel+enVar+phVar+rndVar)));
+
+    this.pitch=pitch;
+    this.history.push({pitch,vel,dur});
+    if(this.history.length>32)this.history.shift();
+    return {pitch,vel,dur,motif:false};
+  }
+}
+
+function softmax(arr,T){
+  const sc=arr.map(x=>x/Math.max(T,.01));
+  const mx=Math.max(...sc);
+  const ex=sc.map(x=>Math.exp(x-mx));
+  const sm=ex.reduce((a,b)=>a+b,0);
+  return ex.map(x=>x/sm);
+}
+function wSample(probs){
+  let r=Math.random(),acc=0;
+  for(let i=0;i<probs.length;i++){acc+=probs[i];if(r<=acc)return i;}
+  return probs.length-1;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// PIANO ROLL
+// ═══════════════════════════════════════════════════════════════════════
+const canvas=document.getElementById('roll-canvas');
+const ctx2d=canvas.getContext('2d');
+let rollNotes=[];
+let playhead=0;
+
+function resizeCanvas(){
+  const w=canvas.parentElement.clientWidth;
+  const h=canvas.parentElement.clientHeight;
+  canvas.width=w; canvas.height=h;
+  drawRoll();
+}
+window.addEventListener('resize',resizeCanvas);
+
+function drawRoll(){
+  const W=canvas.width, H=canvas.height;
+  if(!W||!H)return;
+  const p=getP();
+  const lo=p.rlo-3, hi=p.rhi+3;
+  const span=hi-lo+1;
+  const rowH=H/span;
+  const pxPerBeat=80;
+  const beatsVis=W/pxPerBeat;
+  const beatStart=Math.max(0,playhead-beatsVis*.15);
+
+  ctx2d.fillStyle='#080812';
+  ctx2d.fillRect(0,0,W,H);
+
+  // Rows
+  for(let pt=lo;pt<=hi;pt++){
+    const y=H-(pt-lo+1)*rowH;
+    const pc=pt%12;
+    const black=[1,3,6,8,10].includes(pc);
+    ctx2d.fillStyle=black?'#0b0b1e':'#0e0e26';
+    ctx2d.fillRect(0,y,W,rowH);
+    if(pc===0){ctx2d.fillStyle='#181840';ctx2d.fillRect(0,y,W,1);}
+  }
+  // Beat grid
+  for(let b=Math.floor(beatStart);b<beatStart+beatsVis+1;b++){
+    const x=(b-beatStart)/beatsVis*W;
+    ctx2d.fillStyle=b%4===0?'#282858':'#181835';
+    ctx2d.fillRect(x,0,1,H);
+  }
+  // Notes
+  for(const n of rollNotes){
+    if(n.startBeat+n.dur<beatStart||n.startBeat>beatStart+beatsVis)continue;
+    const x=(n.startBeat-beatStart)/beatsVis*W;
+    const nw=Math.max(n.dur/beatsVis*W-2,2);
+    const y=H-(n.pitch-lo+1)*rowH;
+    ctx2d.globalAlpha=.35+(n.vel/127)*.65;
+    ctx2d.fillStyle=VOICE_COLORS[n.vid%VOICE_COLORS.length];
+    ctx2d.fillRect(x+1,y+1,nw,rowH-2);
+    if(n.motif){
+      ctx2d.globalAlpha=.9;
+      ctx2d.fillStyle='#fff';
+      ctx2d.fillRect(x+1,y+1,3,rowH-2);
+    }
+    ctx2d.globalAlpha=1;
+  }
+  // Playhead
+  const phX=(playhead-beatStart)/beatsVis*W;
+  ctx2d.fillStyle='#ffffff55';
+  ctx2d.fillRect(phX,0,2,H);
+  // Piano keys
+  const kw=26;
+  for(let pt=lo;pt<=hi;pt++){
+    const y=H-(pt-lo+1)*rowH;
+    const pc=pt%12;
+    const black=[1,3,6,8,10].includes(pc);
+    ctx2d.fillStyle=black?'#1a1a40':'#c8c8e818';
+    ctx2d.fillRect(0,y+.5,kw,rowH-1);
+    if(pc===0&&rowH>8){
+      ctx2d.fillStyle='#6666aa99';
+      ctx2d.font=`${Math.min(rowH*.7,9)}px sans-serif`;
+      ctx2d.fillText(midiName(pt),2,y+rowH*.78);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// VOICE CONFIG UI
+// ═══════════════════════════════════════════════════════════════════════
+let voiceConfigs=[]; // {synthType, octaveOffset, volume, motifSlot}
+const SYNTH_TYPES=Object.keys(SYNTH_PRESETS);
+
+function buildVoiceCards(count){
+  const cont=document.getElementById('voice-cards');
+  while(voiceConfigs.length<count) voiceConfigs.push({synthType:'piano',octaveOffset:0,volume:.75,motifSlot:-1});
+  cont.innerHTML='';
+  for(let i=0;i<count;i++){
+    const vc=voiceConfigs[i];
+    const col=VOICE_COLORS[i%VOICE_COLORS.length];
+    const d=document.createElement('div');
+    d.className='voice-card';
+    d.innerHTML=`
+      <div class="vc-head">
+        <div class="vc-dot" style="background:${col}"></div>
+        <span class="vc-name">Voice ${i+1}</span>
+      </div>
+      <div class="vc-row"><label>Instrument</label>
+        <select id="vc-synth-${i}" data-v="${i}">
+          ${SYNTH_TYPES.map(t=>`<option value="${t}"${vc.synthType===t?' selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div class="vc-row"><label>Octave</label>
+        <select id="vc-oct-${i}" data-v="${i}">
+          ${[-2,-1,0,1,2].map(o=>`<option value="${o}"${vc.octaveOffset===o?' selected':''}>+${o}</option>`).join('')}
+        </select>
+      </div>
+      <div class="vc-row"><label>Volume</label>
+        <input type="range" id="vc-vol-${i}" min="0" max="1" value="${vc.volume}" step="0.01">
+      </div>
+      <div class="vc-row"><label>Motif</label>
+        <select id="vc-motif-${i}" data-v="${i}">
+          <option value="-1">any</option>
+          <option value="0">Motif A</option>
+          <option value="1">Motif B</option>
+          <option value="2">Motif C</option>
+        </select>
+      </div>
+    `;
+    cont.appendChild(d);
+    // Events
+    d.querySelector(`#vc-synth-${i}`).addEventListener('change',e=>{
+      voiceConfigs[+e.target.dataset.v].synthType=e.target.value;
+      if(isPlaying)rebuildSynth(+e.target.dataset.v);
+    });
+    d.querySelector(`#vc-oct-${i}`).addEventListener('change',e=>{
+      voiceConfigs[+e.target.dataset.v].octaveOffset=+e.target.value;
+    });
+    d.querySelector(`#vc-vol-${i}`).addEventListener('input',e=>{
+      voiceConfigs[+e.target.dataset.v].volume=+e.target.value;
+    });
+    d.querySelector(`#vc-motif-${i}`).addEventListener('change',e=>{
+      voiceConfigs[+e.target.dataset.v].motifSlot=+e.target.value;
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ENGINE
+// ═══════════════════════════════════════════════════════════════════════
+let isPlaying=false;
+let synths=[];
+let voices=[];
+let harmony=null;
+let perVoiceBeat=[];
+let midiLog=[];
+let totalNotes=0;
+let scheduleHandle=null;
+let imitation_queue=[]; // [{motif, startBeat, voiceId}] for fugue imitation
+
+function rebuildSynth(i){
+  if(synths[i]){try{synths[i].dispose();}catch(e){}}
+  const type=(voiceConfigs[i]||{}).synthType||'piano';
+  const vol=(voiceConfigs[i]||{}).volume||.75;
+  const s=SYNTH_PRESETS[type]?SYNTH_PRESETS[type]():SYNTH_PRESETS.piano();
+  s.volume.value=Tone.gainToDb(vol);
+  synths[i]=s;
+}
+
+function startEngine(){
+  if(isPlaying)return;
+  isPlaying=true;
+  document.getElementById('btn-play').textContent='▐▐ Playing';
+  document.getElementById('btn-play').classList.add('on');
+  Tone.start().then(()=>{
+    const p=getP();
+    Tone.Transport.bpm.value=p.tempo;
+    // Dispose old synths
+    synths.forEach(s=>{try{s.dispose();}catch(e){}});
+    synths=[];
+    for(let i=0;i<p.voices;i++)rebuildSynth(i);
+    // Make sure we have enough synths
+    while(synths.length<p.voices)rebuildSynth(synths.length);
+    harmony=new Harmony(p);
+    voices=[];
+    for(let i=0;i<p.voices;i++)voices.push(new Voice(i,p,harmony));
+    perVoiceBeat=Array(p.voices).fill(0);
+    rollNotes=[];
+    midiLog=[];
+    totalNotes=0;
+    imitation_queue=[];
+    playhead=0;
+    Tone.Transport.cancel();
+    Tone.Transport.start();
+    doSchedule();
+    scheduleHandle=setInterval(doSchedule,120);
+    requestAnimationFrame(animTick);
+  });
+}
+
+function stopEngine(){
+  isPlaying=false;
+  document.getElementById('btn-play').textContent='▶ Play';
+  document.getElementById('btn-play').classList.remove('on');
+  clearInterval(scheduleHandle);
+  Tone.Transport.stop();
+  Tone.Transport.cancel();
+  synths.forEach(s=>{try{s.dispose();}catch(e){}});
+  synths=[];
+}
+
+function doSchedule(){
+  if(!isPlaying)return;
+  const p=getP();
+  Tone.Transport.bpm.value=p.tempo;
+  const now=Tone.Transport.seconds;
+  const spb=60/p.tempo;
+  const aheadSec=1.2;
+  const motifs=getMotifs();
+  const imitDelay=p.imitDelay;
+
+  // Ensure voice/synth count matches
+  while(voices.length<p.voices){
+    const v=new Voice(voices.length,p,harmony);
+    voices.push(v);
+    perVoiceBeat.push(perVoiceBeat[0]||0);
+    rebuildSynth(voices.length-1);
+    buildVoiceCards(p.voices);
+  }
+
+  for(let vi=0;vi<p.voices;vi++){
+    if(!synths[vi])rebuildSynth(vi);
+    while(perVoiceBeat[vi]*spb < now+aheadSec){
+      const bt=perVoiceBeat[vi];
+      const absSec=bt*spb;
+      if(absSec<now-.15){perVoiceBeat[vi]+=.25;continue;}
+
+      const hDelta=Math.max(0,bt-harmony.totalBeats);
+      if(hDelta>0)harmony.advance(hDelta);
+
+      // Check imitation queue for this voice
+      for(let qi=imitation_queue.length-1;qi>=0;qi--){
+        const iq=imitation_queue[qi];
+        if(iq.voiceId===vi && bt>=iq.startBeat){
+          voices[vi].injectMotif(iq.motif,p);
+          imitation_queue.splice(qi,1);
+        }
+      }
+
+      // Determine which motif(s) to offer this voice
+      const vcMotifSlot=(voiceConfigs[vi]||{}).motifSlot??-1;
+      let availMotifs=motifs;
+      if(vcMotifSlot>=0&&motifs[vcMotifSlot]) availMotifs=[motifs[vcMotifSlot]];
+
+      const note=voices[vi].next(p,harmony,availMotifs);
+      totalNotes++;
+
+      // If voice 0 started a motif, schedule imitation in other voices
+      if(note.motif && vi===0 && imitDelay>0 && p.voices>1){
+        const motifSrc=motifs.length?motifs[0]:null;
+        if(motifSrc){
+          for(let ov=1;ov<p.voices;ov++){
+            imitation_queue.push({motif:motifSrc, startBeat:bt+imitDelay*(ov), voiceId:ov});
+          }
+        }
+      }
+
+      const octOff=(voiceConfigs[vi]||{}).octaveOffset||0;
+      const pitch=Math.max(0,Math.min(127,note.pitch+octOff*12));
+      const gateR=.15+p.legato*.82;
+      const durSec=note.dur*spb*gateR;
+      const toneT='+'+(Math.max(0,absSec-now)).toFixed(3);
+      const vel=note.vel/127*((voiceConfigs[vi]||{}).volume||.75);
+
+      try{
+        const hz=midiToHz(pitch);
+        const s=synths[vi];
+        if(s){
+          if(s instanceof Tone.PluckSynth||s instanceof Tone.MembraneSynth||s instanceof Tone.MetalSynth){
+            s.triggerAttackRelease(hz,toneT);
+          } else {
+            s.triggerAttackRelease(hz,durSec,toneT,vel);
+          }
+        }
+      }catch(e){}
+
+      rollNotes.push({pitch,vel:note.vel,startBeat:bt,dur:note.dur,vid:vi,motif:note.motif});
+      midiLog.push({timeBeat:bt,pitch,vel:note.vel,dur:note.dur,ch:vi});
+      if(rollNotes.length>3000)rollNotes.splice(0,500);
+      perVoiceBeat[vi]+=note.dur;
+    }
+  }
+  document.getElementById('st-notes').textContent=totalNotes;
+  document.getElementById('st-chord').textContent=harmony?harmony.chord.name:'--';
+  document.getElementById('st-bar').textContent=harmony?harmony.bar+1:'--';
+  document.getElementById('st-beat').textContent=harmony?(harmony.beat+1):'--';
+  const mq=voices.map(v=>v.motifQueue.length>0?v.motifName:'').filter(Boolean);
+  document.getElementById('st-motif').textContent=mq.length?mq[0]:'--';
+}
+
+function animTick(){
+  if(!isPlaying)return;
+  const p=getP();
+  playhead=Tone.Transport.seconds/(60/p.tempo);
+  drawRoll();
+  updateApiDisplay();
+  requestAnimationFrame(animTick);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// GAME API
+// ═══════════════════════════════════════════════════════════════════════
+window.ImprovEngine={
+  setParam(key,val){
+    const map={
+      tempo:'sl-tempo',energy:'sl-energy',happy:'sl-happy',tense:'sl-tense',
+      bright:'sl-bright',ascend:'sl-ascend',loud:'sl-loud',chroma:'sl-chroma',
+      legato:'sl-legato',rhythm:'sl-rhythm',complex:'sl-complex',temp:'sl-temp',
+      voices:'sl-voices',
+    };
+    const id=map[key];
+    if(id){
+      const el=document.getElementById(id);
+      if(el){el.value=val;el.dispatchEvent(new Event('input'));}
+    }
+  },
+  getParams:getP,
+  startEngine,
+  stopEngine,
+};
+function updateApiDisplay(){
+  const p=getP();
+  const snap={tempo:p.tempo,voices:p.voices,key:NOTE_NAMES[p.key],scale:p.scale,
+    happy:p.happy,energy:p.energy,bright:p.bright,tense:p.tense,rhythm:p.rhythm,
+    ascend:p.ascend,loud:p.loud,chroma:p.chroma,legato:p.legato,complex:p.complex,
+    temp:p.temp};
+  document.getElementById('api-pre').textContent=JSON.stringify(snap,null,2);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MIDI EXPORT
+// ═══════════════════════════════════════════════════════════════════════
+function varLen(v){
+  if(v<0x80)return[v];
+  const b=[];b.unshift(v&0x7F);v>>=7;
+  while(v>0){b.unshift((v&0x7F)|0x80);v>>=7;}
+  return b;
+}
+function u32(n){return[(n>>24)&0xFF,(n>>16)&0xFF,(n>>8)&0xFF,n&0xFF];}
+function u16(n){return[(n>>8)&0xFF,n&0xFF];}
+function mkChunk(id,data){return[...new TextEncoder().encode(id),...u32(data.length),...data];}
+
+function buildMidi(){
+  const p=getP();
+  const TPB=480;
+  const us=Math.round(60000000/p.tempo);
+  const tempoTrk=[0,0xFF,0x51,0x03,(us>>16)&0xFF,(us>>8)&0xFF,us&0xFF,0,0xFF,0x2F,0x00];
+  const nch=Math.min(p.voices,6);
+  const chEvs=Array.from({length:nch},()=>[]);
+  for(const ev of midiLog){const ch=ev.ch%nch;chEvs[ch].push(ev);}
+  const tracks=[tempoTrk];
+  for(let ch=0;ch<nch;ch++){
+    const raw=[];
+    for(const ev of chEvs[ch]){
+      const t=Math.round(ev.timeBeat*TPB);
+      const d=Math.max(1,Math.round(ev.dur*TPB*(.15+(+q('sl-legato'))*.82)));
+      raw.push({t,type:'on',p:ev.pitch,v:ev.vel,ch});
+      raw.push({t:t+d,type:'off',p:ev.pitch,v:0,ch});
+    }
+    raw.sort((a,b)=>a.t-b.t||(a.type==='off'?-1:1));
+    let prev=0;
+    const td=[0,0xC0|ch,0];
+    for(const ev of raw){
+      const delta=Math.max(0,ev.t-prev);
+      td.push(...varLen(delta));
+      if(ev.type==='on')td.push(0x90|ch,ev.p&0x7F,Math.min(127,ev.v));
+      else td.push(0x80|ch,ev.p&0x7F,0);
+      prev=ev.t;
+    }
+    td.push(0,0xFF,0x2F,0x00);
+    tracks.push(td);
+  }
+  const hdr=[...new TextEncoder().encode('MThd'),...u32(6),...u16(1),...u16(tracks.length),...u16(TPB)];
+  const body=tracks.flatMap(t=>mkChunk('MTrk',t));
+  return new Uint8Array([...hdr,...body]);
+}
+
+function downloadMidi(){
+  if(!midiLog.length){alert('Play some music first!');return;}
+  const blob=new Blob([buildMidi()],{type:'audio/midi'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='improv-engine.mid';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MOTIF SLOTS UI
+// ═══════════════════════════════════════════════════════════════════════
+function buildMotifSlots(){
+  const cont=document.getElementById('motif-slots');
+  const labels=['A','B','C'];
+  const examples=['C E G E C G | 1 1 1 1 2 2','0 3 5 7 5 3 | 0.5 0.5 1 1 0.5 0.5','D F A C | 1 1 1 2'];
+  cont.innerHTML='';
+  labels.forEach((lbl,i)=>{
+    const row=document.createElement('div');
+    row.style.marginBottom='10px';
+    row.innerHTML=`
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <input type="checkbox" id="motif-en-${i}" ${i===0?'checked':''}>
+        <label for="motif-en-${i}" style="font-size:.72rem;color:var(--cyan);font-weight:700">Motif ${lbl}</label>
+      </div>
+      <div class="motif-row">
+        <input type="text" id="motif-notes-${i}" placeholder="notes: C E G E or 0 4 7 4" value="${i===0?examples[0].split('|')[0].trim():''}">
+        <input type="text" id="motif-durs-${i}" placeholder="durs: 1 1 2" value="${i===0?examples[0].split('|')[1].trim():''}">
+        <button class="btn-sm" onclick="previewMotif(${i})">▶</button>
+      </div>
+    `;
+    cont.appendChild(row);
+  });
+}
+
+function previewMotif(idx){
+  const noteEl=document.getElementById('motif-notes-'+idx);
+  const durEl=document.getElementById('motif-durs-'+idx);
+  if(!noteEl)return;
+  const notes=parseNotes(noteEl.value);
+  if(!notes.length)return;
+  const p=getP();
+  const rawDurs=parseDurations(durEl?durEl.value:'');
+  Tone.start().then(()=>{
+    const syn=SYNTH_PRESETS.piano();
+    let t=Tone.now()+.05;
+    notes.forEach((pc,i)=>{
+      const dur=rawDurs?rawDurs[i%rawDurs.length]:1;
+      const pitch=p.key+pc+(4*12); // play in octave 4
+      const hz=midiToHz(Math.min(127,Math.max(0,pitch)));
+      const spb=60/p.tempo;
+      try{syn.triggerAttackRelease(hz,dur*spb*.9,t);}catch(e){}
+      t+=dur*spb;
+    });
+    setTimeout(()=>{try{syn.dispose();}catch(e){}},t*1000+2000-Tone.now()*1000);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SLIDER LABELS
+// ═══════════════════════════════════════════════════════════════════════
+const SL_MAP={
+  'sl-tempo':'v-tempo','sl-voices':'v-voices','sl-rlo':'v-rlo','sl-rhi':'v-rhi',
+  'sl-temp':'v-temp','sl-mem':'v-mem','sl-chord':'v-chord',
+};
+Object.entries(SL_MAP).forEach(([sl,vl])=>{
+  const el=document.getElementById(sl);
+  const vEl=document.getElementById(vl);
+  if(el&&vEl)el.addEventListener('input',()=>{vEl.textContent=el.value;});
+});
+
+// Range clamp
+document.getElementById('sl-rlo').addEventListener('input',function(){
+  const h=document.getElementById('sl-rhi');
+  if(+this.value>=+h.value)h.value=+this.value+12;
+  document.getElementById('v-rlo').textContent=this.value;
+  document.getElementById('v-rhi').textContent=h.value;
+});
+document.getElementById('sl-rhi').addEventListener('input',function(){
+  const l=document.getElementById('sl-rlo');
+  if(+this.value<=+l.value)l.value=+this.value-12;
+  document.getElementById('v-rlo').textContent=l.value;
+  document.getElementById('v-rhi').textContent=this.value;
+});
+
+// Voices slider rebuilds cards
+document.getElementById('sl-voices').addEventListener('input',function(){
+  document.getElementById('v-voices').textContent=this.value;
+  buildVoiceCards(+this.value);
+});
+
+// Motif toggle
+const mtBar=document.getElementById('motif-toggle-bar');
+const mtBody=document.getElementById('motif-body');
+mtBar.addEventListener('click',()=>{
+  const open=mtBody.classList.toggle('open');
+  mtBar.classList.toggle('open',open);
+});
+
+// Buttons
+document.getElementById('btn-play').addEventListener('click',()=>{
+  if(!isPlaying)startEngine();
+});
+document.getElementById('btn-stop').addEventListener('click',stopEngine);
+document.getElementById('btn-midi').addEventListener('click',downloadMidi);
+
+// URL param loading (game API)
+function loadUrlParams(){
+  const params=new URLSearchParams(window.location.search);
+  params.forEach((val,key)=>window.ImprovEngine.setParam(key,parseFloat(val)));
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════
+buildVoiceCards(3);
+buildMotifSlots();
+resizeCanvas();
+updateApiDisplay();
+loadUrlParams();
+</script>
+</body>
+</html>
