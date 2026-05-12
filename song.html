@@ -209,7 +209,13 @@ btn, button {
     <div>NOTES <em id="st-notes">0</em></div>
   </div>
   <div class="spacer"></div>
-  <div style="display:flex;gap:8px">
+  <div style="display:flex;gap:6px;align-items:center">
+    <span style="font-size:.65rem;color:var(--dim);margin-right:2px">PRESET</span>
+    <button class="btn-sm" id="btn-organ">Organ</button>
+    <button class="btn-sm" id="btn-harp">Harpsichord</button>
+    <button class="btn-sm" id="btn-toccata">Toccata</button>
+  </div>
+  <div style="display:flex;gap:8px;margin-left:8px">
     <button id="btn-play">▶ Play</button>
     <button id="btn-stop">■ Stop</button>
     <button id="btn-midi">↓ MIDI</button>
@@ -497,13 +503,23 @@ function transformMotif(m, type, transpose=0){
 const TRANSFORMS=['orig','inv','retro','aug','dim'];
 
 // ═══════════════════════════════════════════════════════════════════════
-// HARMONIC CONTEXT
+// HARMONIC CONTEXT  — functional harmony, V→I enforced by tense slider
 // ═══════════════════════════════════════════════════════════════════════
+// From each scale degree, likely next degrees (functional voice-leading order)
+const FUNC_NEXT = {
+  0:[3,4,5,1,2], // I   → IV V VI II III
+  1:[4,0],       // II  → V I
+  2:[5,3],       // III → VI IV
+  3:[4,0,1],     // IV  → V I II
+  4:[0,5],       // V   → I VI(deceptive)
+  5:[1,4,3],     // VI  → II V IV
+  6:[0],         // VII°→ I
+};
+
 class Harmony {
   constructor(p){
     this.p=p;
-    this.prog=PROGRESSIONS[Math.floor(Math.random()*PROGRESSIONS.length)];
-    this.progIdx=0;
+    this.deg=0;
     this.beatInChord=0;
     this.totalBeats=0;
     this.chord=this._buildChord();
@@ -511,167 +527,403 @@ class Harmony {
   }
   _buildChord(){
     const p=this.p;
-    const deg=this.prog[this.progIdx%this.prog.length];
     const sc=SCALES[p.scale]||SCALES.major;
-    const rootPC=(p.key+sc[deg%sc.length])%12;
+    const rootPC=(p.key+sc[this.deg%sc.length])%12;
+    const tense=1-p.tense; // 0=resolved, 1=tense
+    const happy=1-p.happy; // 0=happy(major), 1=melancholic(minor)
     let shp;
-    const tense=1-p.tense, happy=1-p.happy;
-    if(deg===0){ shp=happy>.5?'maj':'min'; if(tense>.6&&Math.random()<tense)shp=happy>.5?'maj7':'min7'; }
-    else if(deg===4){ shp=tense>.4&&Math.random()<tense?'dom7':'maj'; }
-    else { shp=Math.random()<happy?'min':'maj'; if(tense>.7&&Math.random()<.3)shp='dim'; }
+    const d=this.deg;
+    if(d===0){ shp=happy>.5?'min':'maj'; if(tense>.55&&Math.random()<tense*.6)shp=happy>.5?'min7':'maj7'; }
+    else if(d===4){ shp=tense>.25?'dom7':'maj'; }           // V: dominant 7th when any tension
+    else if(d===1){ shp=happy>.5?'min7':'min'; }            // II: pre-dominant
+    else if(d===5){ shp=happy>.5?'maj':'min'; }             // VI: relative major/minor
+    else if(d===6){ shp='dim'; }                            // VII°
+    else { shp=Math.random()<happy?'min':'maj'; }
+    if(tense>.85&&Math.random()<.25) shp='dim';
     const tones=CHORD_SHAPES[shp].map(i=>(rootPC+i)%12);
-    return {rootPC,shp,tones,name:NOTE_NAMES[rootPC]+' '+shp};
+    return {rootPC,shp,tones,deg:d,name:NOTE_NAMES[rootPC]+' '+shp};
   }
   advance(beats){
     this.totalBeats+=beats;
-    this.beat=Math.floor(this.totalBeats%4);
+    this.beat=this.totalBeats%4;
     this.bar=Math.floor(this.totalBeats/4);
     this.beatInChord+=beats;
     const period=this.p.chordPeriod||8;
-    if(this.beatInChord>=period){
-      this.beatInChord-=period;
-      this.progIdx++;
-      this.chord=this._buildChord();
-      if(this.progIdx%this.prog.length===0)
-        this.prog=PROGRESSIONS[Math.floor(Math.random()*PROGRESSIONS.length)];
-    }
+    if(this.beatInChord>=period){ this.beatInChord-=period; this._next(); }
   }
-  isChord(p){return this.chord.tones.includes(p%12);}
+  _next(){
+    const p=this.p;
+    const nexts=FUNC_NEXT[this.deg]||[0];
+    const tense=1-p.tense; // 0=resolved, 1=tense
+    let newDeg;
+    if(this.deg===4){
+      // V always resolves to I unless very tense
+      newDeg= Math.random()<(1-tense*0.7) ? 0 : 5;
+    } else if(this.deg===1 && tense<0.6){
+      newDeg=4; // II→V
+    } else {
+      // Weight earlier entries (more common progressions) unless tense
+      const w=nexts.map((_,i)=>Math.exp(-i*(0.6-tense*0.4)));
+      newDeg=nexts[wSample(softmax(w.map(Math.log),0.5+tense*0.5))];
+    }
+    this.deg=newDeg;
+    this.chord=this._buildChord();
+  }
+  isChord(pitch){ return this.chord.tones.includes(((pitch%12)+12)%12); }
+  leadingTone(){ return (this.p.key+11)%12; }
+  tonicPC(){ return this.p.key%12; }
+  dominantPC(){ return (this.p.key+7)%12; }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// VOICE
+// VOICE  — Bach counterpoint rules, all strength tunable by sliders
 // ═══════════════════════════════════════════════════════════════════════
+
+// Bach melodic interval preference (semitones 0–12)
+// Higher = more likely. Tuned to approximate BWV corpus distribution.
+const ITVL_SCORE=[
+  0.1,   // 0  unison        (avoid static repetition)
+  2.2,   // 1  m2  chromatic step
+  3.2,   // 2  M2  diatonic step  ← most common in Bach
+  2.2,   // 3  m3  small skip
+  2.0,   // 4  M3  small skip
+  1.4,   // 5  P4  moderate leap
+ -1.1,   // 6  TT  tritone — avoid
+  1.1,   // 7  P5  moderate leap
+  0.4,   // 8  m6
+  0.3,   // 9  M6
+ -0.6,   // 10 m7  rare
+ -1.8,   // 11 M7  essentially forbidden
+  0.5,   // 12 P8  octave — acceptable
+];
+
 class Voice {
-  constructor(id,p,harmony){
+  constructor(id, p, harmony, totalVoices){
     this.id=id;
+    this.totalVoices=totalVoices;
     this.history=[];
-    // Stagger across range
-    const mid=(p.rlo+p.rhi)>>1;
-    const spread=Math.max(1,Math.floor((p.rhi-p.rlo)/Math.max(p.voices,1)));
+
+    // Stagger starting pitches
+    const spread=Math.max(1,Math.floor((p.rhi-p.rlo)/Math.max(totalVoices,1)));
     let sp=p.rlo+spread*id+Math.floor(spread/2);
     const scNotes=scaleRange(p.key,p.scale,p.rlo,p.rhi);
     if(scNotes.length) sp=scNotes.reduce((a,b)=>Math.abs(b-sp)<Math.abs(a-sp)?b:a,sp);
     const seedTones=CHORD_SHAPES[p.seed]?.map(i=>(p.key+i)%12)||[0,4,7];
     const seedPs=[];for(let x=p.rlo;x<=p.rhi;x++)if(seedTones.includes(x%12))seedPs.push(x);
     if(seedPs.length) sp=seedPs.reduce((a,b)=>Math.abs(b-sp)<Math.abs(a-sp)?b:a,sp);
-    this.pitch=sp;
-    this.history.push({pitch:sp,vel:80,dur:1});
+    this.pitch=sp; this.prevPitch=sp;
+    this.history.push({pitch:sp,vel:80,dur:0.5});
+
     // Motif state
-    this.motifQueue=[];  // [{pitch (MIDI), dur}] to inject
-    this.motifName='';
+    this.motifQueue=[]; this.motifName='';
+
+    // Phrase tracking
+    this.phrasePos=0;
+    this.phraseLen=this._newPhraseLen();
+
+    // Leap compensation
+    this.lastSignedInterval=0;
+    this.needsCompensation=false;
+
+    // Chord-tone role tracking
+    this.was7th=false;
+
+    // Sequence state
+    this.seq=null;
+
+    // 16th-note run counter
+    this.runRemaining=0;
   }
 
-  injectMotif(motifDef, p){
+  _newPhraseLen(){ return [8,8,12,16][Math.floor(Math.random()*4)]; }
+  isBass(){ return this.id===this.totalVoices-1 && this.totalVoices>=2; }
+
+  // ── Motif ─────────────────────────────────────────────────────────
+  injectMotif(motifDef,p){
     if(!motifDef)return;
     const t=TRANSFORMS[Math.floor(Math.random()*TRANSFORMS.length)];
     const transpose=Math.floor(Math.random()*12);
     const m=transformMotif(motifDef,t,transpose);
-    // Convert pitch-class to nearest MIDI in range
     this.motifQueue=m.notes.map((pc,i)=>{
       const dur=m.durs[i];
-      const candidates=[];
-      for(let x=p.rlo;x<=p.rhi;x++)if((x%12)===pc)candidates.push(x);
-      if(!candidates.length)return null;
-      const tgt=this.pitch;
-      const pitch=candidates.reduce((a,b)=>Math.abs(b-tgt)<Math.abs(a-tgt)?b:a);
-      return {pitch,dur};
+      const cands=[];
+      for(let x=p.rlo;x<=p.rhi;x++)if((x%12)===pc)cands.push(x);
+      if(!cands.length)return null;
+      return {pitch:cands.reduce((a,b)=>Math.abs(b-this.pitch)<Math.abs(a-this.pitch)?b:a),dur};
     }).filter(Boolean);
     this.motifName=t+'@'+(transpose>0?'+':'')+transpose;
   }
 
-  next(p, harmony, availableMotifs){
-    // Maybe start a motif
-    if(!this.motifQueue.length && availableMotifs.length && Math.random()<p.motifDensity*.04){
-      const m=availableMotifs[Math.floor(Math.random()*availableMotifs.length)];
-      this.injectMotif(m,p);
+  // ── Sequence ──────────────────────────────────────────────────────
+  _tryStartSeq(p){
+    if(this.seq||this.history.length<4) return;
+    if(this.phrasePos/this.phraseLen>0.65) return;
+    // complex=0 (complex): frequent sequences; complex=1 (simple): rare
+    if(Math.random()>(1-p.complex)*0.12+0.02) return;
+
+    const cellLen=2+Math.floor(Math.random()*3);
+    const cell=this.history.slice(-cellLen);
+    const intervals=cell.slice(1).map((n,i)=>n.pitch-cell[i].pitch);
+    const durs=cell.map(n=>n.dur);
+
+    // Sequence direction weighted by ascend slider
+    // ascend=0 (ascending bias): prefer rising seqs; ascend=1 (descending): prefer falling
+    const asc=1-p.ascend;
+    const seqTypes=[
+      {t:-7},  // circle-of-fifths fall (most Bachian)
+      {t:-2},  // step descent
+      {t: 2},  // step ascent
+      {t:-3},  // third descent
+      {t: 3},  // third ascent
+    ];
+    const sw=seqTypes.map(s=>s.t>0?asc+0.1:(1-asc)+0.1);
+    const chosen=seqTypes[wSample(softmax(sw.map(Math.log),0.5))];
+
+    this.seq={
+      intervals, durs, pos:0, rep:0,
+      maxRep:2+Math.floor(Math.random()*3),
+      tpr:chosen.t,        // transpose per repetition
+      cumT:0,
+      base:cell[cell.length-1].pitch,
+    };
+  }
+
+  _nextFromSeq(p){
+    const s=this.seq;
+    if(!s) return null;
+    if(s.pos>=s.intervals.length){
+      s.rep++; s.pos=0;
+      s.cumT+=s.tpr;
+      s.base=Math.max(p.rlo,Math.min(p.rhi,s.base+s.tpr));
+      if(s.rep>=s.maxRep||s.base<=p.rlo+1||s.base>=p.rhi-1){ this.seq=null; return null; }
     }
-    // Pull from motif queue with strength
-    if(this.motifQueue.length && Math.random()<p.motifStrength){
+    const pitch=s.pos===0 ? s.base : Math.max(p.rlo,Math.min(p.rhi,this.pitch+s.intervals[s.pos]));
+    const dur=s.durs[s.pos%s.durs.length];
+    s.pos++;
+    return {pitch,dur};
+  }
+
+  // ── Duration ──────────────────────────────────────────────────────
+  _dur(p){
+    const pp=this.phrasePos/Math.max(this.phraseLen,1);
+    const energy=1-p.energy; // 0=restful(long), 1=energetic(short)
+
+    if(this.isBass()){
+      if(pp>0.85) return Math.random()<0.6?2:1;
+      return [0.5,0.5,1,1,1,2][Math.floor(Math.random()*6)];
+    }
+    if(pp>0.93) return Math.random()<0.7?2:1;
+    if(pp>0.82) return [0.5,1,1,1.5][Math.floor(Math.random()*4)];
+
+    // 16th run (energetic → more runs)
+    if(this.runRemaining>0){ this.runRemaining--; return 0.25; }
+    if(energy>0.5&&Math.random()<(energy-0.5)*0.22){
+      this.runRemaining=3+Math.floor(Math.random()*5); return 0.25;
+    }
+
+    // Motor-rhythm vocabulary; rhythm slider shifts toward quarters
+    const rh=1-p.rhythm; // 0=flowing, 1=rhythmic
+    const r=Math.random();
+    if(r<0.55+rh*0.15) return 0.5;   // eighth ← backbone
+    if(r<0.78+rh*0.10) return 1.0;   // quarter
+    if(r<0.88) return 0.75;           // dotted-eighth
+    return 0.5;
+  }
+
+  // ── Scoring: every rule tunable by a slider ───────────────────────
+  _score(x, p, harmony, allVoices){
+    let s=0;
+    const semi=Math.abs(x-this.pitch);
+    const dir=Math.sign(x-this.pitch);
+    const xPC=((x%12)+12)%12;
+    const lastPC=((this.pitch%12)+12)%12;
+    const beat=Math.floor(harmony.beat)%4;     // 0-3
+    const isStrong=beat===0||beat===2;
+    const inSc=inScale(x,p.key,p.scale);
+    const isC=harmony.isChord(x);
+
+    // ── A. Melodic interval (Bach profile) ──────────────────────────
+    // chroma loosens strictness; tense=tense also loosens (more dissonance ok)
+    const iScore=ITVL_SCORE[Math.min(semi,12)]??(-1.5-(semi-12)*0.4);
+    const iWeight=1-(p.chroma*0.5)-(( 1-p.tense)*0.2);
+    s+=iScore*Math.max(0.4,iWeight);
+    if(semi>12) s-=(semi-12)*0.9;
+
+    // ── B. Leap compensation ─────────────────────────────────────────
+    // tense=0: strict (counterpoint); tense=1: relaxed; chroma loosens further
+    if(this.needsCompensation){
+      const lastDir=Math.sign(this.lastSignedInterval);
+      const str=1.8+(1-p.tense)*1.5-(p.chroma*0.6); // 1.2..3.3
+      if(dir===-lastDir&&semi<=2) s+=str*2.5;
+      else if(dir===-lastDir)     s+=str*0.8;
+      else if(dir===lastDir)      s-=str*2.0;
+    }
+
+    // ── C. Augmented interval ban ────────────────────────────────────
+    // chroma=0: strict; chroma=1: allowed (chromatic music)
+    if(p.scale==='harmonic_minor'||p.scale==='minor'){
+      const b6=(p.key+8)%12, s7=(p.key+11)%12;
+      if((lastPC===b6&&xPC===s7)||(lastPC===s7&&xPC===b6))
+        s-=(1-p.chroma)*4.5;
+    }
+
+    // ── D. Tritone melodic leap ──────────────────────────────────────
+    // chroma=0: avoid; chroma=1: ok; tense=0(tense): slightly more ok
+    if(semi===6) s-=(1-p.chroma)*2.0*(0.5+(1-p.tense)*0.5);
+
+    // ── E. Scale / chord membership + beat-position awareness ────────
+    // rhythm=0 (rhythmic): strict beat-placement; rhythm=1 (flowing): relaxed
+    const beatStr=1-p.rhythm; // 0=flowing, 1=rhythmic/strict
+    if(isC){
+      s+=isStrong ? 1.2+beatStr*1.8 : 0.6+beatStr*0.4;
+    } else if(inSc){
+      if(isStrong) s+=semi<=2 ? 0.3 : -(beatStr*0.9);  // passing ok if stepwise
+      else         s+=0.7+(1-beatStr)*0.3;
+    } else {
+      s+=p.chroma*2.8-2.8;
+      if(semi===1) s+=p.chroma*0.5; // chromatic step more ok than leap
+    }
+
+    // ── F. Leading-tone resolution ───────────────────────────────────
+    // tense=0 (tense): must resolve (strict counterpoint)
+    // tense=1 (resolved): already is resolved, can relax rule a bit
+    const lt=harmony.leadingTone(), tonicPC=harmony.tonicPC();
+    const ltStr=1.5+(1-p.tense)*2.5; // 1.5..4.0
+    if(lastPC===lt){
+      if(xPC===tonicPC&&dir>0) s+=ltStr*2.2;
+      else                      s-=ltStr*1.5;
+    }
+    // Landing on LT on a strong beat when not resolving away: warn
+    if(xPC===lt&&isStrong&&!isC) s-=(1-p.tense)*0.8;
+
+    // ── G. 7th resolution ────────────────────────────────────────────
+    // tense=0: strict 7th→step-down; tense=1: relaxed
+    if(this.was7th&&harmony.chord.tones.length>=4){
+      const str=1.0+(1-p.tense)*2.0;
+      if(dir<0&&semi<=2) s+=str*2.0;
+      else               s-=str*0.7;
+    }
+
+    // ── H. Inter-voice counterpoint ──────────────────────────────────
+    // complex=0 (complex): strict rules; complex=1 (simple): looser
+    const strictness=1-p.complex; // 0=loose, 1=strict
+    for(const ov of allVoices){
+      if(ov.id===this.id) continue;
+      // Parallel perfect 5ths / octaves
+      const pi=((ov.pitch-this.pitch)%12+12)%12;
+      const ni=((ov.pitch-x)%12+12)%12;
+      const pPerf=pi===0||pi===7, nPerf=ni===0||ni===7;
+      const oDir=Math.sign(ov.pitch-ov.prevPitch);
+      if(pPerf&&nPerf&&pi===ni&&dir!==0&&dir===oDir)
+        s-=2.5+strictness*4.0;
+      // Direct (hidden) 5ths in outer voices
+      const outerPair=(this.id===0||ov.id===0)&&(this.isBass()||ov.isBass());
+      if(outerPair&&nPerf&&dir===oDir&&semi>2) s-=strictness*2.0;
+      // Contrary motion reward (beautiful in counterpoint)
+      if(dir!==0&&oDir!==0&&dir!==oDir) s+=0.3+strictness*0.6;
+      // Voice crossing
+      const crossPen=0.4+strictness*1.6;
+      if(this.id>ov.id&&x>ov.pitch) s-=crossPen;
+      if(this.id<ov.id&&x<ov.pitch) s-=crossPen;
+      // Unison between different voices
+      if(x===ov.pitch) s-=2.0+strictness;
+    }
+
+    // ── I. Happy / melancholic ────────────────────────────────────────
+    // happy=0: major intervals; happy=1: minor intervals
+    const iv=((x-harmony.chord.rootPC)%12+12)%12;
+    const happy=1-p.happy;
+    const majIv=[0,4,7,9].includes(iv), minIv=[0,3,7,8].includes(iv);
+    if(majIv) s+=(happy-0.5)*(-1.6);
+    if(minIv) s+=(happy-0.5)*(1.6);
+
+    // ── J. Brightness (register) ─────────────────────────────────────
+    // bright=0: prefer high; bright=1: prefer low
+    const norm=(x-p.rlo)/Math.max(p.rhi-p.rlo,1);
+    s+=(0.5-p.bright)*norm*1.4;
+
+    // ── K. Direction bias ────────────────────────────────────────────
+    const ascBias=(0.5-p.ascend)*1.5;
+    if(dir>0) s+=ascBias;
+    if(dir<0) s-=ascBias;
+
+    // ── L. Phrase cadence pull ───────────────────────────────────────
+    const pp=this.phrasePos/Math.max(this.phraseLen,1);
+    if(pp>0.78){
+      const pull=(pp-0.78)*7;
+      if(xPC===tonicPC)              s+=pull*1.6;
+      if(xPC===harmony.dominantPC()) s+=pull*0.8;
+    }
+
+    // ── M. Bass-voice special ────────────────────────────────────────
+    if(this.isBass()){
+      if(xPC===harmony.chord.rootPC) s+=isStrong?3.2:1.2;
+      s+=(1-norm)*1.5; // prefer lower register
+      if(semi>12) s-=3.5;
+    }
+
+    // ── N. Memory ───────────────────────────────────────────────────
+    const rec=this.history.slice(-Math.floor(p.mem));
+    s-=rec.filter(n=>n.pitch===x).length*1.3;
+
+    return s;
+  }
+
+  // ── Velocity ──────────────────────────────────────────────────────
+  _vel(p,isMotif){
+    const base=30+Math.round((1-p.loud)*75);
+    const pp=this.phrasePos/Math.max(this.phraseLen,1);
+    // Phrase swell: quiet at edges, louder in middle
+    const dyn=Math.sin(pp*Math.PI)*20;
+    // Energy adds dynamic variation
+    const ev=(1-p.energy)*22;
+    const rand=(Math.random()-0.5)*12;
+    return Math.max(25,Math.min(127,Math.round(base+dyn+ev+rand+(isMotif?12:0))));
+  }
+
+  // ── main next() ───────────────────────────────────────────────────
+  next(p, harmony, allVoices, availableMotifs){
+    // Motif injection
+    if(!this.motifQueue.length&&availableMotifs.length&&Math.random()<p.motifDensity*0.04)
+      this.injectMotif(availableMotifs[Math.floor(Math.random()*availableMotifs.length)],p);
+    if(this.motifQueue.length&&Math.random()<p.motifStrength){
       const mn=this.motifQueue.shift();
-      this.pitch=mn.pitch;
-      this.history.push({pitch:mn.pitch,vel:90,dur:mn.dur});
-      if(this.history.length>32)this.history.shift();
-      return {pitch:mn.pitch,vel:90,dur:mn.dur,motif:true,motifName:this.motifName};
+      this._commit(mn.pitch,this._vel(p,true),mn.dur,harmony,p);
+      return {pitch:mn.pitch,vel:this._vel(p,true),dur:mn.dur,motif:true,motifName:this.motifName};
     }
-    // Algorithmic selection
-    const lo=p.rlo, hi=p.rhi;
-    const cands=[];
-    for(let x=lo;x<=hi;x++)cands.push(x);
-    if(!cands.length)return{pitch:this.pitch,vel:80,dur:1};
+    // Sequence
+    this._tryStartSeq(p);
+    if(this.seq){
+      const sn=this._nextFromSeq(p);
+      if(sn){
+        const v=this._vel(p,false);
+        this._commit(sn.pitch,v,sn.dur,harmony,p);
+        return {pitch:sn.pitch,vel:v,dur:sn.dur,motif:false,seq:true};
+      }
+    }
+    // Free generation
+    const lo=p.rlo,hi=p.rhi;
+    const cands=[];for(let x=lo;x<=hi;x++)cands.push(x);
+    if(!cands.length)return{pitch:this.pitch,vel:80,dur:0.5};
+    const logits=cands.map(x=>this._score(x,p,harmony,allVoices));
+    const pitch=cands[wSample(softmax(logits,p.temp))];
+    const dur=this._dur(p);
+    const vel=this._vel(p,false);
+    this._commit(pitch,vel,dur,harmony,p);
+    return {pitch,vel,dur,motif:false};
+  }
 
-    const logits=cands.map(x=>{
-      let s=0;
-      const semi=Math.abs(x-this.pitch);
-      // Interval preference
-      if(semi===0) s+=0.2;
-      else if(semi<=2) s+=2.8;
-      else if(semi<=4) s+=1.8;
-      else if(semi<=7) s+=0.9;
-      else if(semi<=12)s+=0.2;
-      else s-=(semi-12)*.18;
-      // Direction
-      const dir=Math.sign(x-this.pitch);
-      const asc=1-p.ascend*2;
-      if(dir>0)s+=asc*.9;
-      if(dir<0)s-=asc*.9;
-      // Scale/chord
-      const inSc=inScale(x,p.key,p.scale);
-      const isC=harmony.isChord(x);
-      if(isC) s+=1.9-p.tense*1.3;
-      else if(inSc) s+=.7;
-      else s+=p.chroma*2-1.8;
-      // Tension
-      const iv=((x-harmony.chord.rootPC)%12+12)%12;
-      const diss=[1,2,6,10,11].includes(iv);
-      if(diss) s+=(1-p.tense)*-1.4+p.tense*.5;
-      // Happy/sad
-      const majIv=[0,4,7,9].includes(iv), minIv=[0,3,7,8].includes(iv);
-      const happy=1-p.happy;
-      if(majIv)s+=(happy-.5)*1.6;
-      if(minIv)s+=(.5-happy)*1.6;
-      // Brightness
-      const norm=(x-lo)/Math.max(hi-lo,1);
-      s+=(1-p.bright-.5)*norm*1.3;
-      // Memory
-      const rec=this.history.slice(-Math.floor(p.mem));
-      s-=rec.filter(n=>n.pitch===x).length*.9;
-      // Simplicity
-      if(!inSc)s-=p.complex*1.6;
-      return s;
-    });
-
-    const probs=softmax(logits,p.temp);
-    const idx=wSample(probs);
-    const pitch=cands[idx];
-
-    // Duration
-    const durs=[.25,.5,.75,1,1.5,2,3,4];
-    const dw=durs.map(d=>{
-      let w=0;
-      const en=1-p.energy;
-      if(d<=.5)w+=en*2.2;
-      else if(d===1)w+=1.6;
-      else if(d>=2)w+=(1-en)*2;
-      else w+=1;
-      const rh=1-p.rhythm;
-      if(rh>.5&&(d===1||d===.5||d===2))w*=(rh+.5);
-      else if(rh>.5)w*=(1-rh+.3);
-      return Math.max(w,.01);
-    });
-    const dur=durs[wSample(softmax(dw.map(Math.log),p.temp*.7))];
-
-    // Velocity
-    const baseVel=40+Math.round((1-p.loud)*70);
-    const enVar=(1-p.energy)*28;
-    const phVar=Math.sin(harmony.totalBeats*.14)*14;
-    const rndVar=(Math.random()-.5)*18;
-    const vel=Math.min(127,Math.max(10,Math.round(baseVel+enVar+phVar+rndVar)));
-
+  _commit(pitch,vel,dur,harmony,p){
+    this.lastSignedInterval=pitch-this.pitch;
+    this.needsCompensation=Math.abs(this.lastSignedInterval)>4;
+    const xPC=((pitch%12)+12)%12;
+    this.was7th=harmony.chord.tones.length>=4&&xPC===harmony.chord.tones[3];
+    this.prevPitch=this.pitch;
     this.pitch=pitch;
+    this.phrasePos+=dur;
+    if(this.phrasePos>=this.phraseLen){ this.phrasePos=0; this.phraseLen=this._newPhraseLen(); }
     this.history.push({pitch,vel,dur});
     if(this.history.length>32)this.history.shift();
-    return {pitch,vel,dur,motif:false};
   }
 }
 
@@ -867,7 +1119,7 @@ function startEngine(){
     while(synths.length<p.voices)rebuildSynth(synths.length);
     harmony=new Harmony(p);
     voices=[];
-    for(let i=0;i<p.voices;i++)voices.push(new Voice(i,p,harmony));
+    for(let i=0;i<p.voices;i++)voices.push(new Voice(i,p,harmony,p.voices));
     perVoiceBeat=Array(p.voices).fill(0);
     rollNotes=[];
     midiLog=[];
@@ -905,7 +1157,7 @@ function doSchedule(){
 
   // Ensure voice/synth count matches
   while(voices.length<p.voices){
-    const v=new Voice(voices.length,p,harmony);
+    const v=new Voice(voices.length,p,harmony,p.voices);
     voices.push(v);
     perVoiceBeat.push(perVoiceBeat[0]||0);
     rebuildSynth(voices.length-1);
@@ -936,7 +1188,7 @@ function doSchedule(){
       let availMotifs=motifs;
       if(vcMotifSlot>=0&&motifs[vcMotifSlot]) availMotifs=[motifs[vcMotifSlot]];
 
-      const note=voices[vi].next(p,harmony,availMotifs);
+      const note=voices[vi].next(p,harmony,voices,availMotifs);
       totalNotes++;
 
       // If voice 0 started a motif, schedule imitation in other voices
@@ -1169,11 +1421,74 @@ mtBar.addEventListener('click',()=>{
 });
 
 // Buttons
-document.getElementById('btn-play').addEventListener('click',()=>{
-  if(!isPlaying)startEngine();
-});
+document.getElementById('btn-play').addEventListener('click',()=>{ if(!isPlaying)startEngine(); });
 document.getElementById('btn-stop').addEventListener('click',stopEngine);
 document.getElementById('btn-midi').addEventListener('click',downloadMidi);
+
+// ─── Style Presets ────────────────────────────────────────────────────
+function applyPreset(vals){
+  Object.entries(vals).forEach(([id,v])=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    el.value=v;
+    el.dispatchEvent(new Event('input'));
+  });
+  // Rebuild voice cards if voices changed
+  const vc=document.getElementById('sl-voices');
+  if(vc) buildVoiceCards(+vc.value);
+}
+
+document.getElementById('btn-organ').addEventListener('click',()=>applyPreset({
+  // Bach Organ: sustained legato, SATB 4 voices, minor key mood, slower
+  'sl-tempo':72, 'sl-voices':4, 'sl-rlo':36, 'sl-rhi':84,
+  'sel-scale':'minor', 'sel-key':'9', // A minor
+  'sl-temp':0.35, 'sl-mem':6, 'sl-chord':8,
+  // emotional
+  'sl-happy':0.65,  // melancholic
+  'sl-energy':0.7,  // restful — long notes
+  'sl-bright':0.55, // slightly dark
+  'sl-tense':0.25,  // somewhat tense (unresolved dissonance)
+  'sl-rhythm':0.25, // flowing (not metrically rigid)
+  'sl-ascend':0.5,  // neutral direction
+  'sl-loud':0.4,    // moderate
+  'sl-chroma':0.08, // very diatonic
+  'sl-legato':0.92, // very legato — organ sustains
+  'sl-complex':0.2, // complex counterpoint
+}));
+
+document.getElementById('btn-harp').addEventListener('click',()=>applyPreset({
+  // Bach Harpsichord: crisp staccato, 2-3 voices, brighter, faster
+  'sl-tempo':96, 'sl-voices':3, 'sl-rlo':48, 'sl-rhi':84,
+  'sel-scale':'major', 'sel-key':'0', // C major
+  'sl-temp':0.4, 'sl-mem':5, 'sl-chord':8,
+  'sl-happy':0.3,   // happier (major)
+  'sl-energy':0.35, // moderately energetic
+  'sl-bright':0.25, // bright
+  'sl-tense':0.4,   // moderate tension
+  'sl-rhythm':0.35, // motor rhythm
+  'sl-ascend':0.45, // slight ascending bias
+  'sl-loud':0.45,
+  'sl-chroma':0.12,
+  'sl-legato':0.35, // staccato — harpsichord doesn't sustain
+  'sl-complex':0.3,
+}));
+
+document.getElementById('btn-toccata').addEventListener('click',()=>applyPreset({
+  // Toccata: fast, dramatic, chromatic, wide range, virtuosic
+  'sl-tempo':140, 'sl-voices':2, 'sl-rlo':36, 'sl-rhi':96,
+  'sel-scale':'harmonic_minor', 'sel-key':'3', // Eb harmonic minor
+  'sl-temp':0.5, 'sl-mem':4, 'sl-chord':4,
+  'sl-happy':0.8,   // melancholic
+  'sl-energy':0.1,  // very energetic
+  'sl-bright':0.35, // bright-ish (high register runs)
+  'sl-tense':0.15,  // very tense
+  'sl-rhythm':0.2,  // motor 16ths
+  'sl-ascend':0.4,  // slightly ascending
+  'sl-loud':0.3,
+  'sl-chroma':0.3,  // more chromatic
+  'sl-legato':0.45,
+  'sl-complex':0.1, // maximum counterpoint
+}));
 
 // URL param loading (game API)
 function loadUrlParams(){
@@ -1182,13 +1497,15 @@ function loadUrlParams(){
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// INIT
+// INIT — default to harpsichord settings
 // ═══════════════════════════════════════════════════════════════════════
 buildVoiceCards(3);
 buildMotifSlots();
 resizeCanvas();
 updateApiDisplay();
 loadUrlParams();
+// Apply harpsichord defaults on load
+setTimeout(()=>document.getElementById('btn-harp').click(), 50);
 </script>
 </body>
 </html>
