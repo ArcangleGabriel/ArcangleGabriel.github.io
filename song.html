@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Song Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+<style>
+:root {
+  --bg: #0d0d1a;
+  --panel: #13132a;
+  --border: #2a2a50;
+  --accent: #7c5cbf;
+  --accent2: #4a9eff;
+  --text: #d4d4f0;
+  --dim: #6666aa;
+  --hot: #ff6b6b;
+  --green: #4dffb4;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+header {
+  padding: 18px 24px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(90deg, #0d0d1a 0%, #1a1040 100%);
+}
+header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #a78bfa, #4a9eff, #4dffb4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 0.05em;
+}
+.transport {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+button {
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+#btn-play {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+#btn-play:hover { background: #9070df; }
+#btn-play.playing { background: var(--hot); border-color: var(--hot); }
+#btn-stop { background: transparent; color: var(--dim); }
+#btn-stop:hover { color: var(--text); border-color: var(--text); }
+#btn-midi { background: transparent; color: var(--accent2); border-color: var(--accent2); }
+#btn-midi:hover { background: rgba(74,158,255,0.1); }
+.main {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+}
+.sidebar {
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.panel-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 10px;
+}
+.slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 9px;
+}
+.slider-row:last-child { margin-bottom: 0; }
+.slider-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--text);
+}
+.slider-label span { color: var(--accent2); font-variant-numeric: tabular-nums; min-width: 32px; text-align: right; }
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid #fff2;
+  transition: background 0.1s;
+}
+input[type=range]:hover::-webkit-slider-thumb { background: #9070df; }
+.bipolar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+.bipolar-row:last-child { margin-bottom: 0; }
+.bipolar-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: var(--dim);
+}
+.bipolar-labels .left { color: #ffb86c; }
+.bipolar-labels .right { color: #bd93f9; }
+input.bipolar { }
+.select-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  gap: 8px;
+}
+.select-row:last-child { margin-bottom: 0; }
+.select-row label { font-size: 0.78rem; white-space: nowrap; }
+select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  flex: 1;
+}
+.right-col {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#roll-canvas {
+  display: block;
+  background: #08081a;
+  flex: 1;
+  min-height: 0;
+}
+.roll-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+.status-bar {
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.72rem;
+  color: var(--dim);
+  display: flex;
+  gap: 20px;
+  background: #0a0a16;
+}
+.status-bar span { color: var(--accent2); }
+@media (max-width: 860px) {
+  .main { grid-template-columns: 1fr; }
+  .sidebar { border-right: none; border-bottom: 1px solid var(--border); max-height: 55vh; }
+  #roll-canvas { min-height: 250px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Song Generator</h1>
+  <div class="transport">
+    <button id="btn-play">Play</button>
+    <button id="btn-stop">Stop</button>
+    <button id="btn-midi">Download MIDI</button>
+  </div>
+</header>
+
+<div class="main">
+  <div class="sidebar">
+
+    <!-- Structural -->
+    <div class="panel">
+      <div class="panel-title">Structure</div>
+
+      <div class="slider-row">
+        <div class="slider-label">Tempo (BPM) <span id="val-tempo">120</span></div>
+        <input type="range" id="sl-tempo" min="40" max="220" value="120">
+      </div>
+      <div class="slider-row">
+        <div class="slider-label">Melodic Lines <span id="val-voices">3</span></div>
+        <input type="range" id="sl-voices" min="1" max="6" value="3" step="1">
+      </div>
+      <div class="slider-row">
+        <div class="slider-label">Note Range Low <span id="val-range-lo">48</span></div>
+        <input type="range" id="sl-range-lo" min="24" max="84" value="48" step="1">
+      </div>
+      <div class="slider-row">
+        <div class="slider-label">Note Range High <span id="val-range-hi">84</span></div>
+        <input type="range" id="sl-range-hi" min="36" max="108" value="84" step="1">
+      </div>
+      <div class="slider-row">
+        <div class="slider-label">Temperature <span id="val-temp">0.55</span></div>
+        <input type="range" id="sl-temp" min="0.05" max="2.0" value="0.55" step="0.05">
+      </div>
+      <div class="slider-row">
+        <div class="slider-label">Memory Depth <span id="val-memory">4</span></div>
+        <input type="range" id="sl-memory" min="1" max="12" value="4" step="1">
+      </div>
+
+      <div class="select-row">
+        <label>Key</label>
+        <select id="sel-key">
+          <option value="0">C</option><option value="1">C#/Db</option>
+          <option value="2">D</option><option value="3">D#/Eb</option>
+          <option value="4">E</option><option value="5">F</option>
+          <option value="6">F#/Gb</option><option value="7">G</option>
+          <option value="8">G#/Ab</option><option value="9">A</option>
+          <option value="10">A#/Bb</option><option value="11">B</option>
+        </select>
+      </div>
+      <div class="select-row">
+        <label>Scale</label>
+        <select id="sel-scale">
+          <option value="major">Major</option>
+          <option value="minor">Natural Minor</option>
+          <option value="dorian">Dorian</option>
+          <option value="phrygian">Phrygian</option>
+          <option value="lydian">Lydian</option>
+          <option value="mixolydian">Mixolydian</option>
+          <option value="harmonic_minor">Harmonic Minor</option>
+          <option value="pentatonic_major">Pentatonic Major</option>
+          <option value="pentatonic_minor">Pentatonic Minor</option>
+          <option value="blues">Blues</option>
+          <option value="whole_tone">Whole Tone</option>
+          <option value="chromatic">Chromatic</option>
+        </select>
+      </div>
+      <div class="select-row">
+        <label>Seed Chord</label>
+        <select id="sel-seed">
+          <option value="major_triad">Major Triad</option>
+          <option value="minor_triad">Minor Triad</option>
+          <option value="dom7">Dominant 7th</option>
+          <option value="maj7">Major 7th</option>
+          <option value="min7">Minor 7th</option>
+          <option value="dim">Diminished</option>
+          <option value="aug">Augmented</option>
+          <option value="sus2">Sus2</option>
+          <option value="sus4">Sus4</option>
+          <option value="power">Power Chord</option>
+        </select>
+      </div>
+      <div class="select-row">
+        <label>Synth Voice</label>
+        <select id="sel-synth">
+          <option value="synth">Synth</option>
+          <option value="am">AM Synth</option>
+          <option value="fm">FM Synth</option>
+          <option value="membrane">Membrane</option>
+          <option value="metal">Metal</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Emotional -->
+    <div class="panel">
+      <div class="panel-title">Emotional Character</div>
+
+      <div class="bipolar-row">
+        <div class="bipolar-labels"><span class="left">Happy</span><span class="right">Melancholic</span></div>
+        <input type="range" class="bipolar" id="sl-happy" min="0" max="1" value="0.35" step="0.01">
+      </div>
+      <div class="bipolar-row">
+        <div class="bipolar-labels"><span class="left">Energetic</span><span class="right">Restful</span></div>
+        <input type="range" class="bipolar" id="sl-energy" min="0" max="1" value="0.5" step="0.01">
+      </div>
+      <div class="bipolar-row">
+        <div class="bipolar-labels"><span class="left">Bright</span><span class="right">Dark</span></div>
+        <input type="range" class="bipolar" id="sl-bright" min="0" max="1" value="0.4" step="0.01">
+      </div>
+      <div class="bipolar-row">
+        <div class="bipolar-labels"><span class="left">Tense</span><span class="right">Resolved</span></div>
+        <input type="range" class="bipolar" id="sl-tense" min="0" max="1" value="0.3" step="0.01">
+      </div>
+      <div class="bipolar-row">
+        <div class="bipolar-labels"><span class="left">Rhythmic</span><span class="right">Flowing</span></div>
+        <input type="range" class="bipolar" id="sl-rhythmic" min="0" max="1" value="0.45" step="0.01">
+      </div>
+      <div class="bipolar-row">
+        <div class="bipolar-labels"><span class="left">Ascending</span><span class="right">Descending</span></div>
+        <input type="range" class="bipolar" id="sl-ascend" min="0" max="1" value="0.5" step="0.01">
+      </div>
+      <div class="bipolar-row">
+        <div class="bipolar-labels"><span class="left">Loud</span><span class="right">Quiet</span></div>
+        <input type="range" class="bipolar" id="sl-loud" min="0" max="1" value="0.5" step="0.01">
+      </div>
+      <div class="bipolar-row">
+        <div class="bipolar-labels"><span class="left">Diatonic</span><span class="right">Chromatic</span></div>
+        <input type="range" class="bipolar" id="sl-chroma" min="0" max="1" value="0.15" step="0.01">
+      </div>
+      <div class="bipolar-row">
+        <div class="bipolar-labels"><span class="left">Staccato</span><span class="right">Legato</span></div>
+        <input type="range" class="bipolar" id="sl-legato" min="0" max="1" value="0.6" step="0.01">
+      </div>
+      <div class="bipolar-row">
+        <div class="bipolar-labels"><span class="left">Complex</span><span class="right">Simple</span></div>
+        <input type="range" class="bipolar" id="sl-complex" min="0" max="1" value="0.5" step="0.01">
+      </div>
+    </div>
+
+  </div><!-- /sidebar -->
+
+  <div class="right-col">
+    <div class="status-bar">
+      <div>Beat: <span id="st-beat">--</span></div>
+      <div>Bar: <span id="st-bar">--</span></div>
+      <div>Chord: <span id="st-chord">--</span></div>
+      <div>Notes generated: <span id="st-notes">0</span></div>
+    </div>
+    <div class="roll-wrap">
+      <canvas id="roll-canvas"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+// =====================================================================
+// SCALES & THEORY
+// =====================================================================
+const SCALES = {
+  major:            [0,2,4,5,7,9,11],
+  minor:            [0,2,3,5,7,8,10],
+  dorian:           [0,2,3,5,7,9,10],
+  phrygian:         [0,1,3,5,7,8,10],
+  lydian:           [0,2,4,6,7,9,11],
+  mixolydian:       [0,2,4,5,7,9,10],
+  harmonic_minor:   [0,2,3,5,7,8,11],
+  pentatonic_major: [0,2,4,7,9],
+  pentatonic_minor: [0,3,5,7,10],
+  blues:            [0,3,5,6,7,10],
+  whole_tone:       [0,2,4,6,8,10],
+  chromatic:        [0,1,2,3,4,5,6,7,8,9,10,11],
+};
+const CHORD_SHAPES = {
+  major_triad: [0,4,7],
+  minor_triad: [0,3,7],
+  dom7:        [0,4,7,10],
+  maj7:        [0,4,7,11],
+  min7:        [0,3,7,10],
+  dim:         [0,3,6],
+  aug:         [0,4,8],
+  sus2:        [0,2,7],
+  sus4:        [0,5,7],
+  power:       [0,7],
+};
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+function midiToName(m) { return NOTE_NAMES[m%12] + Math.floor(m/12-1); }
+function isInScale(pitch, key, scaleName) {
+  const pc = ((pitch - key) % 12 + 12) % 12;
+  return SCALES[scaleName].includes(pc);
+}
+function scaleNotesInRange(key, scaleName, lo, hi) {
+  const out = [];
+  for (let p = lo; p <= hi; p++) if (isInScale(p, key, scaleName)) out.push(p);
+  return out;
+}
+
+// Chord progression patterns (scale degrees, 0-indexed)
+const PROGRESSIONS = [
+  [0,5,3,4], [0,3,4,0], [0,5,3,0], [0,2,5,0],
+  [0,4,5,3], [5,3,0,4], [0,3,0,4], [0,5,4,3],
+];
+
+// =====================================================================
+// PARAMS (live, read from sliders)
+// =====================================================================
+function getParams() {
+  return {
+    tempo:    +document.getElementById('sl-tempo').value,
+    voices:   +document.getElementById('sl-voices').value,
+    rangeLo:  +document.getElementById('sl-range-lo').value,
+    rangeHi:  +document.getElementById('sl-range-hi').value,
+    temp:     +document.getElementById('sl-temp').value,
+    memory:   +document.getElementById('sl-memory').value,
+    key:      +document.getElementById('sel-key').value,
+    scale:    document.getElementById('sel-scale').value,
+    seed:     document.getElementById('sel-seed').value,
+    synthV:   document.getElementById('sel-synth').value,
+    // emotional (0=left label, 1=right label)
+    happy:    +document.getElementById('sl-happy').value,     // 0=happy 1=melancholic
+    energy:   +document.getElementById('sl-energy').value,   // 0=energetic 1=restful
+    bright:   +document.getElementById('sl-bright').value,   // 0=bright 1=dark
+    tense:    +document.getElementById('sl-tense').value,     // 0=tense 1=resolved
+    rhythmic: +document.getElementById('sl-rhythmic').value, // 0=rhythmic 1=flowing
+    ascend:   +document.getElementById('sl-ascend').value,   // 0=ascending 1=descending
+    loud:     +document.getElementById('sl-loud').value,     // 0=loud 1=quiet
+    chroma:   +document.getElementById('sl-chroma').value,   // 0=diatonic 1=chromatic
+    legato:   +document.getElementById('sl-legato').value,   // 0=staccato 1=legato
+    complex:  +document.getElementById('sl-complex').value,  // 0=complex 1=simple
+  };
+}
+
+// =====================================================================
+// RANDOM UTILITIES
+// =====================================================================
+function weightedSample(weights) {
+  let total = weights.reduce((a,b)=>a+b, 0);
+  if (total <= 0) return Math.floor(Math.random()*weights.length);
+  let r = Math.random() * total;
+  for (let i = 0; i < weights.length; i++) { r -= weights[i]; if (r <= 0) return i; }
+  return weights.length - 1;
+}
+function softmax(logits, temp) {
+  const scaled = logits.map(l => l / Math.max(temp, 0.01));
+  const mx = Math.max(...scaled);
+  const exps = scaled.map(x => Math.exp(x - mx));
+  const sum = exps.reduce((a,b)=>a+b,0);
+  return exps.map(x => x/sum);
+}
+function rng(lo, hi) { return lo + Math.random()*(hi-lo); }
+
+// =====================================================================
+// HARMONIC CONTEXT
+// =====================================================================
+class HarmonicContext {
+  constructor(params) {
+    this.params = params;
+    this.progressionPattern = PROGRESSIONS[Math.floor(Math.random()*PROGRESSIONS.length)];
+    this.progIdx = 0;
+    this.beatInChord = 0;
+    this.beatsPerChord = this._chooseBeatsPerChord();
+    this.chord = this._buildChord();
+    this.bar = 0;
+    this.beat = 0;
+    this.totalBeats = 0;
+  }
+  _chooseBeatsPerChord() {
+    // 2 or 4 bars (8 or 16 beats in 4/4)
+    return Math.random() < 0.5 ? 8 : 16;
+  }
+  _buildChord() {
+    const p = this.params;
+    const deg = this.progressionPattern[this.progIdx % this.progressionPattern.length];
+    const scaleNotes = SCALES[p.scale];
+    const rootPC = (p.key + scaleNotes[deg % scaleNotes.length]) % 12;
+    // Choose chord quality based on degree and happy/tense sliders
+    let shape;
+    const tension = 1 - p.tense; // 0=resolved, 1=tense
+    const happiness = 1 - p.happy; // 0=happy, 1=melancholic
+    if (deg === 0) {
+      shape = happiness < 0.5 ? 'major_triad' : 'minor_triad';
+      if (tension > 0.6 && Math.random() < tension) shape = happiness < 0.5 ? 'maj7' : 'min7';
+    } else if (deg === 4) {
+      shape = tension > 0.4 && Math.random() < tension ? 'dom7' : 'major_triad';
+    } else {
+      shape = Math.random() < happiness ? 'minor_triad' : 'major_triad';
+      if (tension > 0.7 && Math.random() < 0.3) shape = 'dim';
+    }
+    const tones = CHORD_SHAPES[shape].map(i => (rootPC + i) % 12);
+    return { rootPC, shape, tones, name: NOTE_NAMES[rootPC] + ' ' + shape.replace('_',' ') };
+  }
+  advance(beats) {
+    this.totalBeats += beats;
+    this.beat = this.totalBeats % 4;
+    this.bar = Math.floor(this.totalBeats / 4);
+    this.beatInChord += beats;
+    if (this.beatInChord >= this.beatsPerChord) {
+      this.beatInChord = 0;
+      this.progIdx++;
+      this.beatsPerChord = this._chooseBeatsPerChord();
+      this.chord = this._buildChord();
+      if (this.progIdx % this.progressionPattern.length === 0)
+        this.progressionPattern = PROGRESSIONS[Math.floor(Math.random()*PROGRESSIONS.length)];
+    }
+  }
+  isChordTone(pitch) { return this.chord.tones.includes(pitch % 12); }
+}
+
+// =====================================================================
+// VOICE STATE
+// =====================================================================
+class Voice {
+  constructor(id, params, harmony) {
+    this.id = id;
+    this.history = [];
+    // Stagger starting pitches across range
+    const mid = Math.floor((params.rangeLo + params.rangeHi) / 2);
+    const spread = Math.floor((params.rangeHi - params.rangeLo) / Math.max(params.voices, 1));
+    let startPitch = params.rangeLo + spread * id + Math.floor(spread/2);
+    // Snap to nearest scale note
+    const scaleNotes = scaleNotesInRange(params.key, params.scale, params.rangeLo, params.rangeHi);
+    if (scaleNotes.length > 0) {
+      startPitch = scaleNotes.reduce((a,b) => Math.abs(b-startPitch)<Math.abs(a-startPitch)?b:a);
+    }
+    // also snap to seed chord if possible
+    const seedTones = CHORD_SHAPES[params.seed].map(i=>(params.key+i)%12);
+    const seedPitches = [];
+    for (let p=params.rangeLo;p<=params.rangeHi;p++) if(seedTones.includes(p%12)) seedPitches.push(p);
+    if(seedPitches.length>0) startPitch = seedPitches.reduce((a,b)=>Math.abs(b-startPitch)<Math.abs(a-startPitch)?b:a);
+    this.pitch = startPitch;
+    this.velocity = 80;
+    this.duration = 1;
+    this.history.push({pitch:startPitch, vel:80, dur:1});
+  }
+
+  nextNote(params, harmony) {
+    const lo = params.rangeLo, hi = params.rangeHi;
+    const candidates = [];
+    for (let p = lo; p <= hi; p++) candidates.push(p);
+    if (candidates.length === 0) return {pitch:this.pitch, vel:80, dur:1};
+
+    // Build log-probability scores
+    const logProbs = candidates.map(p => {
+      let score = 0;
+
+      // — Interval transition preference —
+      const semis = Math.abs(p - this.pitch);
+      if (semis === 0) score += 0.5;  // slight penalty for repeat
+      else if (semis <= 2) score += 2.5; // stepwise strongly preferred
+      else if (semis <= 4) score += 1.5;
+      else if (semis <= 7) score += 0.8;
+      else if (semis <= 12) score += 0.2;
+      else score -= (semis - 12) * 0.15; // large leaps penalized
+
+      // — Direction bias —
+      const dir = Math.sign(p - this.pitch);
+      const ascendBias = 1 - params.ascend * 2; // +1=ascending, -1=descending
+      if (dir > 0) score += ascendBias * 0.8;
+      if (dir < 0) score -= ascendBias * 0.8;
+
+      // — Scale membership —
+      const inScale = isInScale(p, params.key, params.scale);
+      const isChord = harmony.isChordTone(p);
+      if (isChord) score += 1.8 - params.tense * 1.2;
+      else if (inScale) score += 0.6;
+      else score += (params.chroma * 2 - 1.5); // chromatic slider
+
+      // — Tension (dissonance) —
+      const interval = ((p - harmony.chord.rootPC * 1) % 12 + 12) % 12;
+      const dissonant = [1,2,6,10,11].includes(interval);
+      if (dissonant) score += (1 - params.tense) * -1.5 + params.tense * 0.5;
+
+      // — Happy vs melancholic —
+      const majorInterval = [0,4,7,9].includes(interval);
+      const minorInterval = [0,3,7,8].includes(interval);
+      const happiness = 1 - params.happy;
+      if (majorInterval) score += (happiness - 0.5) * 1.5;
+      if (minorInterval) score += (0.5 - happiness) * 1.5;
+
+      // — Brightness (register) —
+      const normPitch = (p - lo) / Math.max(hi - lo, 1);
+      const brightness = 1 - params.bright;
+      score += (brightness - 0.5) * normPitch * 1.2;
+
+      // — Memory: avoid very recent notes —
+      const recent = this.history.slice(-Math.floor(params.memory));
+      const recentPitches = recent.map(n=>n.pitch);
+      const recentCount = recentPitches.filter(rp=>rp===p).length;
+      score -= recentCount * 0.8;
+
+      // — Complexity: polyphony constraint handled by voice count, here affect chord tone bias —
+      const simplicity = params.complex;
+      if (!inScale) score -= simplicity * 1.5;
+
+      return score;
+    });
+
+    // Apply softmax with temperature
+    const probs = softmax(logProbs, params.temp);
+    const idx = weightedSample(probs);
+    const newPitch = candidates[idx];
+
+    // — Duration —
+    const durChoices = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4];
+    const durWeights = durChoices.map(d => {
+      let w = 0;
+      const energy = 1 - params.energy; // 0=restful (long), 1=energetic (short)
+      const rhythmic = 1 - params.rhythmic; // 0=flowing (varied), 1=rhythmic (regular)
+      // Energy: short notes for energetic, long for restful
+      if (d <= 0.5) w += energy * 2;
+      else if (d === 1) w += 1.5;
+      else if (d >= 2) w += (1 - energy) * 2;
+      else w += 1.0;
+      // Rhythmic: prefer 1-beat multiples when rhythmic
+      if (rhythmic > 0.5) {
+        if (d === 1 || d === 2 || d === 0.5) w *= (rhythmic + 0.5);
+        else w *= (1 - rhythmic + 0.3);
+      }
+      return Math.max(w, 0.01);
+    });
+    const durProbs = softmax(durWeights.map(Math.log), params.temp * 0.7);
+    const dur = durChoices[weightedSample(durProbs)];
+
+    // — Velocity —
+    const baseVel = Math.round(40 + (1 - params.loud) * 70);
+    const energyVar = (1 - params.energy) * 30; // louder when energetic
+    const phraseVar = Math.sin(harmony.totalBeats * 0.15) * 15; // phrasing shape
+    const randVar = (Math.random() - 0.5) * 20;
+    const vel = Math.min(127, Math.max(10, Math.round(baseVel + energyVar + phraseVar + randVar)));
+
+    this.pitch = newPitch;
+    this.velocity = vel;
+    this.duration = dur;
+    const note = {pitch:newPitch, vel, dur};
+    this.history.push(note);
+    if (this.history.length > 32) this.history.shift();
+    return note;
+  }
+}
+
+// =====================================================================
+// PIANO ROLL RENDERER
+// =====================================================================
+const canvas = document.getElementById('roll-canvas');
+const ctx2d = canvas.getContext('2d');
+let rollNotes = []; // {pitch, vel, startBeat, dur, voiceId, color}
+let playhead = 0;
+const VOICE_COLORS = ['#7c5cbf','#4a9eff','#4dffb4','#ffb86c','#ff6b6b','#f1fa8c'];
+
+function resizeCanvas() {
+  const wrap = canvas.parentElement;
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  drawRoll();
+}
+window.addEventListener('resize', resizeCanvas);
+
+function drawRoll() {
+  const W = canvas.width, H = canvas.height;
+  ctx2d.fillStyle = '#08081a';
+  ctx2d.fillRect(0,0,W,H);
+
+  const p = getParams();
+  const lo = p.rangeLo - 2, hi = p.rangeHi + 2;
+  const pitchRange = hi - lo + 1;
+  const rowH = H / pitchRange;
+  const beatsVisible = W / 80; // 80px per beat
+  const beatStart = Math.max(0, playhead - beatsVisible * 0.15);
+
+  // Grid lines
+  for (let pitch = lo; pitch <= hi; pitch++) {
+    const y = H - (pitch - lo + 1) * rowH;
+    const pc = pitch % 12;
+    const isBlack = [1,3,6,8,10].includes(pc);
+    ctx2d.fillStyle = isBlack ? '#0c0c20' : '#0f0f24';
+    ctx2d.fillRect(0, y, W, rowH);
+    if (pc === 0) {
+      ctx2d.fillStyle = '#1a1a3a';
+      ctx2d.fillRect(0, y, W, 1);
+    }
+  }
+
+  // Beat grid
+  for (let b = Math.floor(beatStart); b < beatStart + beatsVisible + 1; b++) {
+    const x = (b - beatStart) / beatsVisible * W;
+    ctx2d.fillStyle = b % 4 === 0 ? '#2a2a55' : '#1c1c38';
+    ctx2d.fillRect(x, 0, 1, H);
+  }
+
+  // Notes
+  for (const n of rollNotes) {
+    if (n.startBeat + n.dur < beatStart) continue;
+    if (n.startBeat > beatStart + beatsVisible) continue;
+    const x = (n.startBeat - beatStart) / beatsVisible * W;
+    const w = n.dur / beatsVisible * W;
+    const y = H - (n.pitch - lo + 1) * rowH;
+    const alpha = 0.4 + (n.vel / 127) * 0.6;
+    ctx2d.fillStyle = VOICE_COLORS[n.voiceId % VOICE_COLORS.length];
+    ctx2d.globalAlpha = alpha;
+    ctx2d.fillRect(x + 1, y + 1, Math.max(w - 2, 2), rowH - 2);
+    ctx2d.globalAlpha = 1;
+  }
+
+  // Playhead
+  const phX = (playhead - beatStart) / beatsVisible * W;
+  ctx2d.fillStyle = '#ffffff44';
+  ctx2d.fillRect(phX, 0, 2, H);
+
+  // Piano keys on left
+  const keyW = 28;
+  for (let pitch = lo; pitch <= hi; pitch++) {
+    const y = H - (pitch - lo + 1) * rowH;
+    const pc = pitch % 12;
+    const isBlack = [1,3,6,8,10].includes(pc);
+    ctx2d.fillStyle = isBlack ? '#222240' : '#d4d4f020';
+    ctx2d.fillRect(0, y + 0.5, keyW, rowH - 1);
+    if (pc === 0 && rowH > 8) {
+      ctx2d.fillStyle = '#6666aa88';
+      ctx2d.font = `${Math.min(rowH*0.7, 9)}px sans-serif`;
+      ctx2d.fillText(midiToName(pitch), 2, y + rowH * 0.75);
+    }
+  }
+}
+
+// =====================================================================
+// SYNTH ENGINE
+// =====================================================================
+let synths = [];
+
+function buildSynth(type) {
+  const opts = {
+    synth: { oscillator:{type:'sine'}, envelope:{attack:0.04,decay:0.1,sustain:0.7,release:0.6}},
+    am:    null,
+    fm:    null,
+    membrane: null,
+    metal: null,
+  };
+  switch(type) {
+    case 'am': return new Tone.AMSynth().toDestination();
+    case 'fm': return new Tone.FMSynth({envelope:{attack:0.04,decay:0.15,sustain:0.6,release:0.8}}).toDestination();
+    case 'membrane': return new Tone.MembraneSynth().toDestination();
+    case 'metal': return new Tone.MetalSynth().toDestination();
+    default: return new Tone.Synth(opts.synth).toDestination();
+  }
+}
+
+function disposeSynths() {
+  for (const s of synths) { try { s.dispose(); } catch(e){} }
+  synths = [];
+}
+
+function noteToFreq(midi) { return 440 * Math.pow(2, (midi-69)/12); }
+
+// =====================================================================
+// SEQUENCER
+// =====================================================================
+let isPlaying = false;
+let voices = [];
+let harmony = null;
+let totalBeatsPlayed = 0;
+let totalNotesGenerated = 0;
+let lookaheadSecs = 0.25;
+let scheduleInterval = null;
+let scheduledUntilBeat = 0;
+let perVoiceTime = []; // beat position per voice
+let midiEventLog = []; // for MIDI export: {time_beats, pitch, vel, dur, channel}
+
+function startEngine() {
+  if (isPlaying) return;
+  isPlaying = true;
+  document.getElementById('btn-play').textContent = 'Playing...';
+  document.getElementById('btn-play').classList.add('playing');
+
+  Tone.start().then(() => {
+    const p = getParams();
+    Tone.Transport.bpm.value = p.tempo;
+    disposeSynths();
+    for (let i = 0; i < p.voices; i++) synths.push(buildSynth(p.synthV));
+
+    harmony = new HarmonicContext(p);
+    voices = [];
+    for (let i = 0; i < p.voices; i++) voices.push(new Voice(i, p, harmony));
+    perVoiceTime = voices.map(() => 0);
+    scheduledUntilBeat = 0;
+    totalNotesGenerated = 0;
+    rollNotes = [];
+    midiEventLog = [];
+    playhead = 0;
+
+    Tone.Transport.cancel();
+    Tone.Transport.start();
+    scheduleChunk();
+    scheduleInterval = setInterval(scheduleChunk, 150);
+    requestAnimationFrame(animLoop);
+  });
+}
+
+function stopEngine() {
+  isPlaying = false;
+  document.getElementById('btn-play').textContent = 'Play';
+  document.getElementById('btn-play').classList.remove('playing');
+  clearInterval(scheduleInterval);
+  Tone.Transport.stop();
+  Tone.Transport.cancel();
+  disposeSynths();
+}
+
+function scheduleChunk() {
+  if (!isPlaying) return;
+  const p = getParams();
+  Tone.Transport.bpm.value = p.tempo;
+
+  const now = Tone.Transport.seconds;
+  const secPerBeat = 60 / p.tempo;
+  const scheduleAheadSecs = 1.0;
+  const scheduleUntilSec = now + scheduleAheadSecs;
+
+  for (let v = 0; v < Math.min(voices.length, p.voices); v++) {
+    // Add voices if needed
+    while (voices.length < p.voices) {
+      voices.push(new Voice(voices.length, p, harmony));
+      perVoiceTime.push(perVoiceTime[0] || 0);
+      synths.push(buildSynth(p.synthV));
+    }
+
+    while (perVoiceTime[v] * secPerBeat < scheduleUntilSec) {
+      const beatTime = perVoiceTime[v];
+      const absSec = beatTime * secPerBeat;
+      if (absSec < now - 0.1) { perVoiceTime[v] += 0.25; continue; }
+
+      // Advance harmony to this beat
+      const hBeats = Math.max(0, beatTime - harmony.totalBeats);
+      if (hBeats > 0) harmony.advance(hBeats);
+
+      const note = voices[v].nextNote(p, harmony);
+      totalNotesGenerated++;
+
+      // Legato: actual sustain vs gap
+      const gateRatio = 0.2 + p.legato * 0.75;
+      const durSec = note.dur * secPerBeat * gateRatio;
+
+      // Schedule audio
+      if (synths[v] && absSec >= now - 0.05) {
+        const freq = noteToFreq(note.pitch);
+        const vel = note.vel / 127;
+        const toneTime = '+' + Math.max(0, absSec - now).toFixed(3);
+        try {
+          synths[v].triggerAttackRelease(freq, durSec, toneTime, vel);
+        } catch(e){}
+      }
+
+      // Log for piano roll & MIDI
+      rollNotes.push({
+        pitch: note.pitch,
+        vel: note.vel,
+        startBeat: beatTime,
+        dur: note.dur,
+        voiceId: v,
+      });
+      midiEventLog.push({
+        timeBeat: beatTime,
+        pitch: note.pitch,
+        vel: note.vel,
+        dur: note.dur,
+        channel: v,
+      });
+      if (rollNotes.length > 2000) rollNotes.splice(0, 400);
+
+      perVoiceTime[v] += note.dur;
+    }
+  }
+
+  // Update status
+  const currentBeat = now / (60 / p.tempo);
+  playhead = currentBeat;
+  totalBeatsPlayed = currentBeat;
+  document.getElementById('st-beat').textContent = (Math.floor(currentBeat % 4) + 1);
+  document.getElementById('st-bar').textContent = Math.floor(currentBeat / 4) + 1;
+  document.getElementById('st-chord').textContent = harmony ? harmony.chord.name : '--';
+  document.getElementById('st-notes').textContent = totalNotesGenerated;
+}
+
+function animLoop() {
+  if (!isPlaying) return;
+  const p = getParams();
+  playhead = Tone.Transport.seconds / (60 / p.tempo);
+  drawRoll();
+  requestAnimationFrame(animLoop);
+}
+
+// =====================================================================
+// MIDI FILE BUILDER
+// =====================================================================
+function varLen(val) {
+  if (val < 0x80) return [val];
+  const bytes = [];
+  bytes.unshift(val & 0x7F);
+  val >>= 7;
+  while (val > 0) { bytes.unshift((val & 0x7F) | 0x80); val >>= 7; }
+  return bytes;
+}
+
+function buildMidi() {
+  const p = getParams();
+  const TPB = 480; // ticks per beat
+  const uSecPerBeat = Math.round(60000000 / p.tempo);
+
+  function writeUint32(n) { return [(n>>24)&0xFF,(n>>16)&0xFF,(n>>8)&0xFF,n&0xFF]; }
+  function writeUint16(n) { return [(n>>8)&0xFF,n&0xFF]; }
+  function chunk(id, data) {
+    const bytes = [...new TextEncoder().encode(id), ...writeUint32(data.length), ...data];
+    return bytes;
+  }
+
+  // Tempo track
+  const tempoTrack = [
+    0, 0xFF, 0x51, 0x03,
+    (uSecPerBeat>>16)&0xFF, (uSecPerBeat>>8)&0xFF, uSecPerBeat&0xFF,
+    0, 0xFF, 0x2F, 0x00,
+  ];
+
+  // Group events by channel
+  const numChannels = Math.min(p.voices, 6);
+  const channelEvents = Array.from({length:numChannels}, ()=>[]);
+  for (const ev of midiEventLog) {
+    const ch = ev.channel % numChannels;
+    channelEvents[ch].push(ev);
+  }
+
+  const tracks = [tempoTrack];
+  for (let ch = 0; ch < numChannels; ch++) {
+    const evs = channelEvents[ch];
+    // Build raw events: note_on and note_off
+    const raw = [];
+    for (const ev of evs) {
+      const tick = Math.round(ev.timeBeat * TPB);
+      const durTick = Math.max(1, Math.round(ev.dur * TPB * (0.2 + p.legato * 0.75)));
+      raw.push({tick, type:'on',  pitch:ev.pitch, vel:ev.vel, ch});
+      raw.push({tick:tick+durTick, type:'off', pitch:ev.pitch, vel:0, ch});
+    }
+    raw.sort((a,b)=>a.tick-b.tick||(a.type==='off'?-1:1));
+
+    let prevTick = 0;
+    const trackData = [];
+    // Program change
+    trackData.push(0, 0xC0|ch, 0); // piano
+    for (const ev of raw) {
+      const delta = Math.max(0, ev.tick - prevTick);
+      trackData.push(...varLen(delta));
+      if (ev.type === 'on') {
+        trackData.push(0x90|ch, ev.pitch & 0x7F, Math.min(127, ev.vel));
+      } else {
+        trackData.push(0x80|ch, ev.pitch & 0x7F, 0);
+      }
+      prevTick = ev.tick;
+    }
+    trackData.push(0, 0xFF, 0x2F, 0x00);
+    tracks.push(trackData);
+  }
+
+  // Header
+  const header = [
+    ...new TextEncoder().encode('MThd'),
+    ...writeUint32(6),
+    ...writeUint16(1), // format 1
+    ...writeUint16(tracks.length),
+    ...writeUint16(TPB),
+  ];
+  const body = tracks.flatMap(t => chunk('MTrk', t));
+  return new Uint8Array([...header, ...body]);
+}
+
+function downloadMidi() {
+  if (midiEventLog.length === 0) { alert('Play some music first!'); return; }
+  const bytes = buildMidi();
+  const blob = new Blob([bytes], {type:'audio/midi'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'song-generator.mid';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// =====================================================================
+// UI WIRING
+// =====================================================================
+document.getElementById('btn-play').addEventListener('click', () => {
+  if (isPlaying) return;
+  startEngine();
+});
+document.getElementById('btn-stop').addEventListener('click', stopEngine);
+document.getElementById('btn-midi').addEventListener('click', downloadMidi);
+
+// Slider value display
+const sliderDisplays = {
+  'sl-tempo':'val-tempo','sl-voices':'val-voices',
+  'sl-range-lo':'val-range-lo','sl-range-hi':'val-range-hi',
+  'sl-temp':'val-temp','sl-memory':'val-memory',
+};
+for (const [sl, vl] of Object.entries(sliderDisplays)) {
+  const el = document.getElementById(sl);
+  const disp = document.getElementById(vl);
+  if (!el || !disp) continue;
+  el.addEventListener('input', () => { disp.textContent = el.value; });
+}
+
+// Range lo/hi clamp
+document.getElementById('sl-range-lo').addEventListener('input', function() {
+  const hi = document.getElementById('sl-range-hi');
+  if (+this.value >= +hi.value) hi.value = +this.value + 12;
+  document.getElementById('val-range-lo').textContent = this.value;
+  document.getElementById('val-range-hi').textContent = hi.value;
+});
+document.getElementById('sl-range-hi').addEventListener('input', function() {
+  const lo = document.getElementById('sl-range-lo');
+  if (+this.value <= +lo.value) lo.value = +this.value - 12;
+  document.getElementById('val-range-lo').textContent = lo.value;
+  document.getElementById('val-range-hi').textContent = this.value;
+});
+
+// Init
+resizeCanvas();
+drawRoll();
+</script>
+</body>
+</html>
